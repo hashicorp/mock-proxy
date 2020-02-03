@@ -1,0 +1,28 @@
+---
+version: '3.3'
+    
+services:
+  proxy:
+    build:
+      context: ../
+      dockerfile: build/package/docker/Dockerfile
+    networks:
+      default:
+        aliases: [squid.proxy]
+
+  client:
+    build:
+      context: ../
+      dockerfile: build/package/docker/Dockerfile.client
+    environment:
+      http_proxy: http://squid.proxy:8888
+      #https_proxy: https://squid.proxy:8888
+      foo: bar
+    depends_on:
+      - proxy
+    networks:
+      default:
+        aliases: [my.client]
+
+networks:
+  default:
