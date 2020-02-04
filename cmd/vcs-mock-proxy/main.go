@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"html"
 	"log"
+	"net/http"
 	"os"
 
 	"github.com/go-icap/icap"
@@ -16,6 +18,8 @@ func main() {
 }
 
 func inner() error {
+	http.HandleFunc("/", swapHandler)
+
 	icap.HandleFunc("/icap", interception)
 	return icap.ListenAndServe(":11344", icap.HandlerFunc(interception))
 }
@@ -32,6 +36,8 @@ func interception(w icap.ResponseWriter, req *icap.Request) {
 		w.WriteHeader(200, nil, false)
 	case "REQMOD":
 		switch req.Request.Host {
+		case "neverssl.com", "www.neverssl.com":
+			icap.ServeLocally(w, req)
 		default:
 			// Return the request unmodified.
 			w.WriteHeader(204, nil, false)
@@ -40,4 +46,8 @@ func interception(w icap.ResponseWriter, req *icap.Request) {
 		w.WriteHeader(405, nil, false)
 		fmt.Println("Invalid request method")
 	}
+}
+
+func swapHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Hello, %q\n", html.EscapeString(r.URL.String()))
 }
