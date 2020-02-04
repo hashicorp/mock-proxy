@@ -7,4 +7,11 @@ ROOT_DIR="$(cd "$SCRIPT_DIR"/.. && pwd)"
 cd "$ROOT_DIR"
 
 docker-compose --file deployments/docker-compose.yml build
-docker-compose --file deployments/docker-compose.yml run client /bin/bash
+docker-compose --file deployments/docker-compose.yml run client \
+  /bin/sh -c '
+    dockerize \
+      -wait tcp://squid.proxy:8888 \
+      -timeout 60s \
+      -wait-retry-interval 5s \
+    && /bin/bash
+  '

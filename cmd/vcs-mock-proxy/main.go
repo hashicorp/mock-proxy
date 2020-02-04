@@ -21,7 +21,7 @@ func inner() error {
 	http.HandleFunc("/", swapHandler)
 
 	icap.HandleFunc("/icap", interception)
-	return icap.ListenAndServe(":11344", icap.HandlerFunc(interception))
+	return icap.ListenAndServe(":11344", nil)
 }
 
 func interception(w icap.ResponseWriter, req *icap.Request) {
