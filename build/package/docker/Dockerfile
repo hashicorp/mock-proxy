@@ -20,6 +20,8 @@ RUN apk add --no-cache ca-certificates squid dumb-init bash
 WORKDIR /
 
 COPY --from=builder /go/src/github.com/hashicorp/vcs-mock-proxy/vcs-mock-proxy .
+COPY --from=builder /go/src/github.com/hashicorp/vcs-mock-proxy/mocks ./mocks
+
 COPY ./build/package/docker/configs/squid.conf /etc/squid/squid.conf
 COPY ./build/package/docker/scripts/squid-icap-init.sh .
 
