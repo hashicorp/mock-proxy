@@ -13,6 +13,10 @@ import (
 	"github.com/go-icap/icap"
 )
 
+// Transformer is an interface that applies some mutation to a mock response.
+// To properly implement the Transformer interface, it must be possible to
+// "chain" transformations together. They should not make changes that would
+// invalidate other transformations.
 type Transformer interface {
 	Transform(r io.Reader) (t io.Reader, err error)
 }
@@ -22,6 +26,8 @@ type Transformer interface {
 //    https://dave.cheney.net/2014/10/17/functional-options-for-friendly-apis
 type Option func(*MockServer) error
 
+// MockServer starts the HTTP and ICAP servers that are required to run the
+// mocking system.
 type MockServer struct {
 	mockFilesRoot string
 
@@ -31,6 +37,8 @@ type MockServer struct {
 	transformers []Transformer
 }
 
+// NewMockServer is a creator for a new MockServer. It makes use of functional
+// options to provide additional configuration on top of the defaults.
 func NewMockServer(options ...Option) (*MockServer, error) {
 	ms := &MockServer{
 		mockFilesRoot: "/mocks",
@@ -55,6 +63,8 @@ func NewMockServer(options ...Option) (*MockServer, error) {
 	return ms, nil
 }
 
+// WithMockRoot is a functional option that changes where MockServer looks for
+// mock files.
 func WithMockRoot(root string) Option {
 	return func(m *MockServer) error {
 		m.mockFilesRoot = root
@@ -62,6 +72,9 @@ func WithMockRoot(root string) Option {
 	}
 }
 
+// WithDefaultVariables is a functional option that sets some default
+// transformers. These are used in testing, but can also be used to supply
+// "global" values.
 func WithDefaultVariables(vars ...*VariableSubstitution) Option {
 	return func(m *MockServer) error {
 		for _, newVar := range vars {
@@ -71,6 +84,8 @@ func WithDefaultVariables(vars ...*VariableSubstitution) Option {
 	}
 }
 
+// Serve starts the actual servers and handlers, then waits for them to exit
+// or for an Interrupt signal.
 func (ms *MockServer) Serve() error {
 	// ICAP makes use of these handlers on the DefaultServeMux's
 	http.HandleFunc("/", ms.mockHandler)
@@ -85,7 +100,7 @@ func (ms *MockServer) Serve() error {
 
 	// We also want to gracefully stop when the OS asks us to
 	killSignal := make(chan os.Signal, 1)
-	signal.Notify(killSignal, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGUSR2)
+	signal.Notify(killSignal, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
 		icapErrC <- icap.ListenAndServe(fmt.Sprintf(":%d", ms.icapPort), nil)
@@ -106,6 +121,9 @@ func (ms *MockServer) Serve() error {
 	}
 }
 
+// interception runs the ICAP handler. When a request is input, we either:
+//   1. If it matches a known "mocked" host, injects a response.
+//   2. If it does not, returns a 204 which allows the request unmodifed.
 func (ms *MockServer) interception(w icap.ResponseWriter, req *icap.Request) {
 	switch req.Method {
 	case "OPTIONS":
@@ -132,6 +150,8 @@ func (ms *MockServer) interception(w icap.ResponseWriter, req *icap.Request) {
 	}
 }
 
+// mockHandler receives requests and based on them, returns one of the known
+// .mock files, after running it through the configured Transformers.
 func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	if r.URL.Path == "/" {
@@ -173,6 +193,10 @@ func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// substitutionVariableHandler can receive a GET or POST request.
+//   GET) Returns a JSON representation of the current variable substitutions.
+//   POST) Adds a new variable substitution based on multi-part form values.
+//         curl -X POST -F "key=A" -F "value=B" squid.proxy/substitution-variables
 func (ms *MockServer) substitutionVariableHandler(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -241,6 +265,9 @@ func (ms *MockServer) substitutionVariableHandler(
 	}
 }
 
+// addVariableSubstitution adds a new variable substitution. It iterates the
+// currently configured Transformers, and if an existing substitution for a
+// variable with the new key already exists, replaces it instead of having two.
 func (ms *MockServer) addVariableSubstitution(
 	new *VariableSubstitution,
 ) {

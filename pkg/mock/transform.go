@@ -8,15 +8,21 @@ import (
 	templateparse "text/template/parse"
 )
 
+// VariableSubstitution represents a single Golang type template value to be
+// replaced with a given value.
 type VariableSubstitution struct {
 	key   string
 	value string
 }
 
+// NewVariableSubstitution is a creator for a new VariableSubstitution.
 func NewVariableSubstitution(key, value string) (*VariableSubstitution, error) {
 	return &VariableSubstitution{key: key, value: value}, nil
 }
 
+// Transform is used to implement the Transformer interface. It takes an input
+// Reader, substitutes the "key" with the "value" using Golang templates and
+// returns a Reader that has that substitution performed.
 func (vs *VariableSubstitution) Transform(in io.Reader) (io.Reader, error) {
 	subMap := map[string]string{
 		vs.key: vs.value,
