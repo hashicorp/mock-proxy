@@ -21,7 +21,7 @@ type Transformer interface {
 	Transform(r io.Reader) (t io.Reader, err error)
 }
 
-// Option is a configuration option for passing to the Artifactory constructor.
+// Option is a configuration option for passing to the MockServer constructor.
 // This is used to implement the "Functional Options" pattern:
 //    https://dave.cheney.net/2014/10/17/functional-options-for-friendly-apis
 type Option func(*MockServer) error
