@@ -6,12 +6,14 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/go-icap/icap"
 )
 
 type Transformer interface {
-	Transform(r io.ReadCloser) (t io.ReadCloser, err error)
+	Transform(r io.Reader) (t io.Reader, err error)
 }
 
 type MockServer struct {
@@ -43,6 +45,11 @@ func (ms *MockServer) Serve() error {
 
 	icapErrC := make(chan error)
 	apiErrC := make(chan error)
+
+	// We also want to gracefully stop when the OS asks us to
+	killSignal := make(chan os.Signal, 1)
+	signal.Notify(killSignal, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
 	go func() {
 		icapErrC <- icap.ListenAndServe(fmt.Sprintf(":%d", ms.icapPort), nil)
 	}()
@@ -56,6 +63,8 @@ func (ms *MockServer) Serve() error {
 			return err
 		case err := <-apiErrC:
 			return err
+		case <-killSignal:
+			return nil
 		}
 	}
 }
@@ -94,7 +103,7 @@ func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Apply the configured transformations to the mock file
-	var res io.ReadCloser
+	var res io.Reader
 	res = mock
 	for _, t := range ms.transformers {
 		res, err = t.Transform(res)
@@ -123,7 +132,6 @@ func (ms *MockServer) substitutionVariableHandler(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-
 	switch r.Method {
 	case http.MethodGet:
 		resp := []struct {
@@ -132,15 +140,14 @@ func (ms *MockServer) substitutionVariableHandler(
 		}{}
 
 		for _, transform := range ms.transformers {
-			switch transform.(type) {
+			switch tr := transform.(type) {
 			case *VariableSubstitution:
-				vs := transform.(*VariableSubstitution)
 				resp = append(resp, struct {
 					Key   string `json:"key"`
 					Value string `json:"value"`
 				}{
-					Key:   vs.key,
-					Value: vs.value,
+					Key:   tr.key,
+					Value: tr.value,
 				})
 			}
 		}
@@ -188,10 +195,9 @@ func (ms *MockServer) addVariableSubstitution(
 ) {
 	var replaced bool
 	for idx, transform := range ms.transformers {
-		switch transform.(type) {
+		switch tr := transform.(type) {
 		case *VariableSubstitution:
-			existing := transform.(*VariableSubstitution)
-			if existing.key == new.key {
+			if tr.key == new.key {
 				ms.transformers[idx] = new
 				replaced = true
 			}
