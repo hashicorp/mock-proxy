@@ -5,7 +5,7 @@ set -euo pipefail
 /vcs-mock-proxy &
 
 # TODO: Is this necessary?
-sleep 10
+sleep 1
 
 # Start squid in non-daemon mode (i.e., foregrounded)
 squid -f /etc/squid/squid.conf -N
