@@ -1,0 +1,112 @@
+---
+version: 2
+
+references:
+  images:
+    go: &GO_IMAGE circleci/golang:1.13.6
+    lint: &LINT_IMAGE quay.io/hashicorp/hc-golangci-lint:1.16.0
+    aws: &AWS_CLI_IMAGE quay.io/hashicorp/hc-awscli:1.16.313
+
+workflows:
+  version: 2
+  validate:
+    jobs:
+      - prepare-environment
+      - fetch-citool
+      - lint
+      - test
+      - deploy-artifact:
+          requires:
+            - prepare-environment
+            - fetch-citool
+            - lint
+            - test
+          filters:
+            branches:
+              only:
+                - master
+
+jobs:
+  prepare-environment:
+    docker:
+      - image: *GO_IMAGE
+    steps:
+      - checkout
+      - run:
+          name: Export DEPLOY_BUILD_ID
+          command: |
+            short_git_sha=$( git rev-parse --short HEAD )
+
+            # the always-increasing counter, based on CIRCLE_BUILD_NUM
+            build_counter="${CIRCLE_BUILD_NUM}"
+
+            # the build identifier, which includes the short git sha
+            DEPLOY_BUILD_ID="CIRC-${build_counter}-${short_git_sha}"
+            echo "export DEPLOY_BUILD_ID=${DEPLOY_BUILD_ID}" >> "${BASH_ENV}"
+
+            # save the ${BASH_ENV} value into a file in the workspace
+            cp "${BASH_ENV}" bash-env
+      - persist_to_workspace:
+          root: "."
+          paths:
+            - "bash-env"
+
+  fetch-citool:
+    docker:
+      - image: *AWS_CLI_IMAGE
+        auth:
+          username: $DEPLOY_QUAY_USER
+          password: $DEPLOY_QUAY_TOKEN
+    steps:
+      - run:
+          name: Download citool from S3
+          command: |
+            aws s3 cp s3://hc-citool-bucket/citool citool
+            chmod +x citool
+      - persist_to_workspace:
+          root: "."
+          paths:
+            - "citool"
+
+  lint:
+    docker:
+      - image: *LINT_IMAGE
+        auth:
+          username: $DEPLOY_QUAY_USER
+          password: $DEPLOY_QUAY_TOKEN
+    working_directory: /app
+    steps:
+      - checkout
+      - run:
+          name: Lint Code
+          command: |
+            cd /
+            ./command.sh
+
+  test:
+    docker:
+      - image: *GO_IMAGE
+    steps:
+      - checkout
+      - run:
+          name: Test
+          command: |
+            go test -v -race ./...
+
+  deploy-artifact:
+    docker:
+      - image: *GO_IMAGE
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - attach_workspace:
+          at: "."
+      - run:
+          name: Source Environment
+          command: |
+            cat bash-env >> "${BASH_ENV}"
+      - run:
+          name: Deploy Artifact
+          command: |
+            ./citool deploy artifact --file="deployments/deploy.hcl"

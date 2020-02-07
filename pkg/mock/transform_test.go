@@ -96,9 +96,7 @@ func TestVariableSubstitutionTransform(t *testing.T) {
 
 			ir := strings.NewReader(tc.input)
 
-			var gotReader io.Reader
-			gotReader = ir
-
+			var gotReader io.Reader = ir
 			for _, transform := range tc.vs {
 				gr, err := transform.Transform(gotReader)
 				require.Nil(t, err)

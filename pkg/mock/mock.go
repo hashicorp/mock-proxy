@@ -168,8 +168,7 @@ func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Apply the configured transformations to the mock file
-	var res io.Reader
-	res = mock
+	var res io.Reader = mock
 	for _, t := range ms.transformers {
 		res, err = t.Transform(res)
 		if err != nil {
@@ -239,8 +238,6 @@ func (ms *MockServer) substitutionVariableHandler(
 			)
 			return
 		}
-
-		fmt.Printf("%+v\n", r.PostForm)
 
 		key := r.PostForm.Get("key")
 		value := r.PostForm.Get("value")
