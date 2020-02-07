@@ -21,11 +21,10 @@ workflows:
             - fetch-citool
             - lint
             - test
-          # uncomment this filter before finishing.
-          # filters:
-          #   branches:
-          #     only:
-          #       - master
+          filters:
+            branches:
+              only:
+                - master
 
 jobs:
   prepare-environment:
