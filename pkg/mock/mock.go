@@ -138,6 +138,8 @@ func (ms *MockServer) interception(w icap.ResponseWriter, req *icap.Request) {
 		switch req.Request.Host {
 		case "example.com", "www.example.com":
 			icap.ServeLocally(w, req)
+		case "api.github.com":
+			icap.ServeLocally(w, req)
 		default:
 			// Return the request unmodified.
 			w.WriteHeader(http.StatusNoContent, nil, false)
@@ -156,6 +158,8 @@ func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	if r.URL.Path == "/" {
 		path = "index"
+	} else {
+		path = replacePathVars(r.URL.Path, ms)
 	}
 
 	mockPath := filepath.Join(ms.mockFilesRoot, r.URL.Host, path)
