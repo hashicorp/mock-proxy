@@ -135,10 +135,9 @@ func (ms *MockServer) interception(w icap.ResponseWriter, req *icap.Request) {
 		h.Set("Transfer-Preview", "*")
 		w.WriteHeader(http.StatusOK, nil, false)
 	case "REQMOD":
-		switch req.Request.Host {
-		case "example.com", "www.example.com":
+		if _, err := os.Stat(filepath.Join(ms.mockFilesRoot, req.Request.Host)); err == nil {
 			icap.ServeLocally(w, req)
-		default:
+		} else {
 			// Return the request unmodified.
 			w.WriteHeader(http.StatusNoContent, nil, false)
 		}
@@ -153,9 +152,11 @@ func (ms *MockServer) interception(w icap.ResponseWriter, req *icap.Request) {
 // mockHandler receives requests and based on them, returns one of the known
 // .mock files, after running it through the configured Transformers.
 func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
-	path := r.URL.Path
+	var path string
 	if r.URL.Path == "/" {
 		path = "index"
+	} else {
+		path = ms.replacePathVars(r.URL.Path)
 	}
 
 	mockPath := filepath.Join(ms.mockFilesRoot, r.URL.Host, path)
