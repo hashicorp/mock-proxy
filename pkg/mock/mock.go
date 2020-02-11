@@ -155,7 +155,7 @@ func (ms *MockServer) interception(w icap.ResponseWriter, req *icap.Request) {
 // mockHandler receives requests and based on them, returns one of the known
 // .mock files, after running it through the configured Transformers.
 func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
-	path := r.URL.Path
+	var path string
 	if r.URL.Path == "/" {
 		path = "index"
 	} else {
