@@ -67,7 +67,7 @@ func TestReplacePathVars(t *testing.T) {
 			ms, err := NewMockServer(tc.options...)
 			require.Nil(t, err)
 
-			got := replacePathVars(tc.input, ms)
+			got := ms.replacePathVars(tc.input)
 
 			assert.Equal(t, tc.want, got)
 		})

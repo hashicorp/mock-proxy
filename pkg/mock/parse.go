@@ -1,7 +1,7 @@
 package mock
 
 import (
-	"bytes"
+	"fmt"
 	"strings"
 )
 
@@ -9,7 +9,7 @@ import (
 // currently configured Transformers, and looks for a match between an existing Transformer
 // value and a value in the path. If it finds a match, it replaces that value in the path
 // with the API symbol, e.g. `:org`, `:username`.
-func replacePathVars(i string, ms *MockServer) string {
+func (ms *MockServer) replacePathVars(i string) string {
 	parts := strings.Split(i, "/")
 
 	for _, t := range ms.transformers {
@@ -17,10 +17,7 @@ func replacePathVars(i string, ms *MockServer) string {
 		case *VariableSubstitution:
 			for idx, p := range parts {
 				if p == tr.value {
-					var buffer bytes.Buffer
-					buffer.WriteString(":")
-					buffer.WriteString(strings.ToLower(tr.key))
-					parts[idx] = buffer.String()
+					parts[idx] = fmt.Sprintf(":%s", strings.ToLower(tr.key))
 				}
 			}
 		}
