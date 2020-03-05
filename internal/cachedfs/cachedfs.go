@@ -39,13 +39,10 @@ func WithCacheExpiry(ttl time.Duration) Option {
 		cf.invalidationFunc = func(cf *CachedFS) {
 			ticker := time.NewTicker(ttl)
 
-			for {
-				select {
-				case <-ticker.C:
-					cf.m.Lock()
-					cf.hits = map[string]bool{}
-					cf.m.Unlock()
-				}
+			for range ticker.C {
+				cf.m.Lock()
+				cf.hits = map[string]bool{}
+				cf.m.Unlock()
 			}
 		}
 		return nil
@@ -54,6 +51,7 @@ func WithCacheExpiry(ttl time.Duration) Option {
 
 func (cf *CachedFS) PathExists(path string) bool {
 	cf.m.RLock()
+
 	val, hit := cf.hits[path]
 	if !hit {
 		// On miss, check if filepath exists.
