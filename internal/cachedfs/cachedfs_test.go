@@ -1,7 +1,6 @@
 package cachedfs
 
 import (
-	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -45,7 +44,9 @@ func TestPathExists(t *testing.T) {
 
 			got := cf.PathExists(tc.path)
 			assert.Equal(t, tc.want, got)
+			cf.m.RLock()
 			assert.Equal(t, tc.wantMapState, cf.hits)
+			cf.m.RUnlock()
 		})
 	}
 }
@@ -107,12 +108,15 @@ func TestInvalidateFunc(t *testing.T) {
 
 	want := map[string]bool{"foo": true}
 	cf.AddPath("foo", true)
+	cf.m.RLock()
 	assert.Equal(t, want, cf.hits)
+	cf.m.RUnlock()
 
 	want = map[string]bool{}
 	time.Sleep(2 * time.Second)
-	fmt.Println(cf)
+	cf.m.RLock()
 	assert.Equal(t, want, cf.hits)
+	cf.m.RUnlock()
 }
 
 func BenchmarkUncachedExists(b *testing.B) {
