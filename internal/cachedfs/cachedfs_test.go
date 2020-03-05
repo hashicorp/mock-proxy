@@ -1,8 +1,10 @@
 package cachedfs
 
 import (
+	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,10 +26,12 @@ func TestPathExists(t *testing.T) {
 			},
 		},
 		{
-			name:         "simple miss",
-			path:         "testdata/notarealdirectorythough",
-			want:         false,
-			wantMapState: nil,
+			name: "simple miss",
+			path: "testdata/notarealdirectorythough",
+			want: false,
+			wantMapState: map[string]bool{
+				"testdata/notarealdirectorythough": false,
+			},
 		},
 	}
 
@@ -48,28 +52,32 @@ func TestPathExists(t *testing.T) {
 
 func TestAddPath(t *testing.T) {
 	tcs := []struct {
-		name  string
-		paths []string
-		want  map[string]bool
+		name   string
+		paths  []string
+		values []bool
+		want   map[string]bool
 	}{
 		{
-			name:  "add one",
-			paths: []string{"a"},
+			name:   "add one",
+			paths:  []string{"a"},
+			values: []bool{true},
 			want: map[string]bool{
 				"a": true,
 			},
 		},
 		{
-			name:  "add two",
-			paths: []string{"a", "b"},
+			name:   "add two",
+			paths:  []string{"a", "b"},
+			values: []bool{true, true},
 			want: map[string]bool{
 				"a": true,
 				"b": true,
 			},
 		},
 		{
-			name:  "add two repeat",
-			paths: []string{"a", "a"},
+			name:   "add two repeat",
+			paths:  []string{"a", "a"},
+			values: []bool{true, true},
 			want: map[string]bool{
 				"a": true,
 			},
@@ -84,13 +92,27 @@ func TestAddPath(t *testing.T) {
 			cf, err := NewCachedFS()
 			require.Nil(t, err)
 
-			for _, p := range tc.paths {
-				cf.AddPath(p)
+			for i, p := range tc.paths {
+				cf.AddPath(p, tc.values[i])
 			}
 
 			assert.Equal(t, tc.want, cf.hits)
 		})
 	}
+}
+
+func TestInvalidateFunc(t *testing.T) {
+	cf, err := NewCachedFS(WithCacheExpiry(1 * time.Second))
+	require.Nil(t, err)
+
+	want := map[string]bool{"foo": true}
+	cf.AddPath("foo", true)
+	assert.Equal(t, want, cf.hits)
+
+	want = map[string]bool{}
+	time.Sleep(2 * time.Second)
+	fmt.Println(cf)
+	assert.Equal(t, want, cf.hits)
 }
 
 func BenchmarkUncachedExists(b *testing.B) {

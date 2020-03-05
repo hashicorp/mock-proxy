@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/go-icap/icap"
 
@@ -51,7 +52,7 @@ func NewMockServer(options ...Option) (*MockServer, error) {
 		apiPort:  80,
 	}
 
-	cf, err := cachedfs.NewCachedFS()
+	cf, err := cachedfs.NewCachedFS(cachedfs.WithCacheExpiry(1 * time.Minute))
 	if err != nil {
 		return nil, err
 	}

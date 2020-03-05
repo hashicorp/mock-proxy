@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/hashicorp/vcs-mock-proxy/internal/cachedfs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -29,8 +28,6 @@ func TestNewMockServer(t *testing.T) {
 				icapPort: 11344,
 
 				mockFilesRoot: "testdata/",
-
-				cachedFS: &cachedfs.CachedFS{},
 			},
 		},
 	}
@@ -43,7 +40,9 @@ func TestNewMockServer(t *testing.T) {
 			got, err := NewMockServer(tc.options...)
 			require.Nil(t, err)
 
-			assert.Equal(t, tc.want, got)
+			assert.Equal(t, tc.want.apiPort, got.apiPort)
+			assert.Equal(t, tc.want.icapPort, got.icapPort)
+			assert.Equal(t, tc.want.mockFilesRoot, got.mockFilesRoot)
 		})
 	}
 }
