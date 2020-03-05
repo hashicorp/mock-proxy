@@ -40,7 +40,9 @@ func TestNewMockServer(t *testing.T) {
 			got, err := NewMockServer(tc.options...)
 			require.Nil(t, err)
 
-			assert.Equal(t, tc.want, got)
+			assert.Equal(t, tc.want.apiPort, got.apiPort)
+			assert.Equal(t, tc.want.icapPort, got.icapPort)
+			assert.Equal(t, tc.want.mockFilesRoot, got.mockFilesRoot)
 		})
 	}
 }

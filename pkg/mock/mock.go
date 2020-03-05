@@ -9,8 +9,11 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/go-icap/icap"
+
+	"github.com/hashicorp/vcs-mock-proxy/internal/cachedfs"
 )
 
 // Transformer is an interface that applies some mutation to a mock response.
@@ -35,6 +38,8 @@ type MockServer struct {
 	apiPort  int
 
 	transformers []Transformer
+
+	cachedFS *cachedfs.CachedFS
 }
 
 // NewMockServer is a creator for a new MockServer. It makes use of functional
@@ -47,13 +52,21 @@ func NewMockServer(options ...Option) (*MockServer, error) {
 		apiPort:  80,
 	}
 
+	cf, err := cachedfs.NewCachedFS(
+		cachedfs.WithSimpleCacheExpiry(1 * time.Minute),
+	)
+	if err != nil {
+		return nil, err
+	}
+	ms.cachedFS = cf
+
 	for _, o := range options {
 		if err := o(ms); err != nil {
 			return nil, err
 		}
 	}
 
-	_, err := os.Open(ms.mockFilesRoot)
+	_, err = os.Open(ms.mockFilesRoot)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"invalid mock file directory %v: %w", ms.mockFilesRoot, err,
@@ -135,7 +148,7 @@ func (ms *MockServer) interception(w icap.ResponseWriter, req *icap.Request) {
 		h.Set("Transfer-Preview", "*")
 		w.WriteHeader(http.StatusOK, nil, false)
 	case "REQMOD":
-		if _, err := os.Stat(filepath.Join(ms.mockFilesRoot, req.Request.Host)); err == nil {
+		if ms.cachedFS.PathExists(filepath.Join(ms.mockFilesRoot, req.Request.Host)) {
 			icap.ServeLocally(w, req)
 		} else {
 			// Return the request unmodified.
