@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// invalidationFunc is A type alias for functions that can clear the cache.
+// invalidationFunc is a type alias for functions that can clear the cache.
 type invalidationFunc func(*CachedFS)
 
 // Option is a configuration option for passing to the CachedFS constructor.
