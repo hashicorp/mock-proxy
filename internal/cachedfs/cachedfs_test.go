@@ -97,7 +97,9 @@ func TestAddPath(t *testing.T) {
 				cf.AddPath(p, tc.values[i])
 			}
 
+			cf.m.RLock()
 			assert.Equal(t, tc.want, cf.hits)
+			cf.m.RUnlock()
 		})
 	}
 }
