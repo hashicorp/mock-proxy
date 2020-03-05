@@ -94,7 +94,7 @@ func TestAddPath(t *testing.T) {
 			require.Nil(t, err)
 
 			for i, p := range tc.paths {
-				cf.AddPath(p, tc.values[i])
+				cf.addPath(p, tc.values[i])
 			}
 
 			cf.m.RLock()
@@ -105,11 +105,11 @@ func TestAddPath(t *testing.T) {
 }
 
 func TestInvalidateFunc(t *testing.T) {
-	cf, err := NewCachedFS(WithCacheExpiry(1 * time.Second))
+	cf, err := NewCachedFS(WithSimpleCacheExpiry(1 * time.Second))
 	require.Nil(t, err)
 
 	want := map[string]bool{"foo": true}
-	cf.AddPath("foo", true)
+	cf.addPath("foo", true)
 	cf.m.RLock()
 	assert.Equal(t, want, cf.hits)
 	cf.m.RUnlock()

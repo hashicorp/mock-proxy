@@ -52,7 +52,9 @@ func NewMockServer(options ...Option) (*MockServer, error) {
 		apiPort:  80,
 	}
 
-	cf, err := cachedfs.NewCachedFS(cachedfs.WithCacheExpiry(1 * time.Minute))
+	cf, err := cachedfs.NewCachedFS(
+		cachedfs.WithSimpleCacheExpiry(1 * time.Minute),
+	)
 	if err != nil {
 		return nil, err
 	}

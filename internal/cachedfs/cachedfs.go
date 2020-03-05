@@ -6,16 +6,23 @@ import (
 	"time"
 )
 
+// invalidationFunc is A type alias for functions that can clear the cache.
 type invalidationFunc func(*CachedFS)
 
+// Option is a configuration option for passing to the CachedFS constructor.
+// This is used to implement the "Functional Options" pattern:
+//    https://dave.cheney.net/2014/10/17/functional-options-for-friendly-apis
 type Option func(*CachedFS) error
 
+// CachedFS is a simple cache structure that allows you to cache whether a
+// given directory exists.
 type CachedFS struct {
 	m                sync.RWMutex
 	hits             map[string]bool
 	invalidationFunc invalidationFunc
 }
 
+// NewCachedFS is the constructor for CachedFS.
 func NewCachedFS(options ...Option) (*CachedFS, error) {
 	cf := &CachedFS{
 		hits: map[string]bool{},
@@ -34,7 +41,10 @@ func NewCachedFS(options ...Option) (*CachedFS, error) {
 	return cf, nil
 }
 
-func WithCacheExpiry(ttl time.Duration) Option {
+// WithSimpleCacheExpiry is a functional option which will delete the entire
+// cache after a set amount of time. This is very basic, but covers the easy
+// case.
+func WithSimpleCacheExpiry(ttl time.Duration) Option {
 	return func(cf *CachedFS) error {
 		cf.invalidationFunc = func(cf *CachedFS) {
 			ticker := time.NewTicker(ttl)
@@ -49,6 +59,8 @@ func WithCacheExpiry(ttl time.Duration) Option {
 	}
 }
 
+// PathExists checks if the given path exists and caches the lookup so it won't
+// be repeated.
 func (cf *CachedFS) PathExists(path string) bool {
 	cf.m.RLock()
 
@@ -62,7 +74,7 @@ func (cf *CachedFS) PathExists(path string) bool {
 
 		// cache information about whether the path exists.
 		cf.m.RUnlock()
-		cf.AddPath(path, exists)
+		cf.addPath(path, exists)
 		return exists
 	}
 
@@ -70,7 +82,8 @@ func (cf *CachedFS) PathExists(path string) bool {
 	return val
 }
 
-func (cf *CachedFS) AddPath(path string, val bool) {
+// addPath adds a path to the cache.
+func (cf *CachedFS) addPath(path string, val bool) {
 	cf.m.Lock()
 	defer cf.m.Unlock()
 
