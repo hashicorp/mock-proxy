@@ -26,7 +26,6 @@ func (ms *MockServer) parsePath(path string) (string, []*VariableSubstitution) {
 	subs := []*VariableSubstitution{}
 	matches := pathRegexp.FindAllStringSubmatch(path, -1)
 	for _, match := range matches {
-		fmt.Println(match)
 		result := make(map[string]string)
 		for i, name := range pathRegexp.SubexpNames() {
 			if i != 0 && name != "" {
