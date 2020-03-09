@@ -23,7 +23,6 @@ var (
 //   user => rae
 // will be created for that request.
 func (ms *MockServer) parsePath(path string) (string, []*VariableSubstitution) {
-	fmt.Println(path)
 	subs := []*VariableSubstitution{}
 	matches := pathRegexp.FindAllStringSubmatch(path, -1)
 	for _, match := range matches {
@@ -41,7 +40,6 @@ func (ms *MockServer) parsePath(path string) (string, []*VariableSubstitution) {
 
 		path = strings.Replace(path, match[0], fmt.Sprintf(":%s", result["key"]), 1)
 	}
-	fmt.Println(path)
 
 	return path, subs
 }

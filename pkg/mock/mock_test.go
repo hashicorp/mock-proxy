@@ -73,6 +73,14 @@ func TestMockServerMockHandler(t *testing.T) {
 			},
 			want: "Hello, Davenport!\n",
 		},
+		{
+			name: "dynamic url",
+			url:  "example.com/~~dynamic~substitution~~",
+			options: []Option{
+				WithMockRoot("testdata/"),
+			},
+			want: "Dynamic Substitution: substitution\n",
+		},
 	}
 
 	for _, tc := range tcs {
