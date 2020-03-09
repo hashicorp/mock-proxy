@@ -7,56 +7,44 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestReplacePathVars(t *testing.T) {
+func TestParsePath(t *testing.T) {
 	tcs := []struct {
-		name    string
-		input   string
-		options []Option
-		want    string
+		name     string
+		input    string
+		want     string
+		wantSubs []*VariableSubstitution
 	}{
 		{
 			name:  "even",
-			input: "/orgs/hashicorp/repos/atlas",
-			options: []Option{
-				WithMockRoot("testdata/"),
-				WithDefaultVariables(
-					&VariableSubstitution{key: "Org", value: "hashicorp"},
-					&VariableSubstitution{key: "Repo", value: "atlas"},
-				),
+			input: "/orgs/~~org~hashicorp~~/repos/~~repo~atlas~~",
+			want:  "/orgs/:org/repos/:repo",
+			wantSubs: []*VariableSubstitution{
+				{key: "org", value: "hashicorp"},
+				{key: "repo", value: "atlas"},
 			},
-			want: "/orgs/:org/repos/:repo",
 		},
 		{
 			name:  "odd",
-			input: "/orgs/hashicorp/repos",
-			options: []Option{
-				WithMockRoot("testdata/"),
-				WithDefaultVariables(
-					&VariableSubstitution{key: "Org", value: "hashicorp"},
-				),
+			input: "/orgs/~~org~hashicorp~~/repos",
+			want:  "/orgs/:org/repos",
+			wantSubs: []*VariableSubstitution{
+				{key: "org", value: "hashicorp"},
 			},
-			want: "/orgs/:org/repos",
 		},
 		{
 			name:  "sequential",
-			input: "/orgs/rae/atlas/teams",
-			options: []Option{
-				WithMockRoot("testdata/"),
-				WithDefaultVariables(
-					&VariableSubstitution{key: "Owner", value: "rae"},
-					&VariableSubstitution{key: "Repo", value: "atlas"},
-				),
+			input: "/orgs/~~owner~rae~~/~~repo~atlas~~/teams",
+			want:  "/orgs/:owner/:repo/teams",
+			wantSubs: []*VariableSubstitution{
+				{key: "owner", value: "rae"},
+				{key: "repo", value: "atlas"},
 			},
-			want: "/orgs/:owner/:repo/teams",
 		},
 		{
-			name:  "none",
-			input: "/user/repositories",
-			options: []Option{
-				WithMockRoot("testdata/"),
-				WithDefaultVariables(),
-			},
-			want: "/user/repositories",
+			name:     "none",
+			input:    "/user/repositories",
+			want:     "/user/repositories",
+			wantSubs: []*VariableSubstitution{},
 		},
 	}
 
@@ -64,12 +52,13 @@ func TestReplacePathVars(t *testing.T) {
 		tc := tc // capture range variable
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			ms, err := NewMockServer(tc.options...)
+			ms, err := NewMockServer(WithMockRoot("testdata/"))
 			require.Nil(t, err)
 
-			got := ms.replacePathVars(tc.input)
+			got, gotSubs := ms.parsePath(tc.input)
 
 			assert.Equal(t, tc.want, got)
+			assert.Equal(t, tc.wantSubs, gotSubs)
 		})
 	}
 }

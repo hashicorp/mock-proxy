@@ -166,10 +166,15 @@ func (ms *MockServer) interception(w icap.ResponseWriter, req *icap.Request) {
 // .mock files, after running it through the configured Transformers.
 func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 	var path string
+	var localTransforms []Transformer
 	if r.URL.Path == "/" {
 		path = "index"
 	} else {
-		path = ms.replacePathVars(r.URL.Path)
+		var substitutions []*VariableSubstitution
+		path, substitutions = ms.parsePath(r.URL.Path)
+		for _, s := range substitutions {
+			localTransforms = append(localTransforms, s)
+		}
 	}
 
 	mockPath := filepath.Join(ms.mockFilesRoot, r.URL.Host, path)
@@ -183,7 +188,8 @@ func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Apply the configured transformations to the mock file
 	var res io.Reader = mock
-	for _, t := range ms.transformers {
+	transforms := append(ms.transformers, localTransforms...)
+	for _, t := range transforms {
 		res, err = t.Transform(res)
 		if err != nil {
 			http.Error(

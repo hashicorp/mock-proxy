@@ -2,26 +2,46 @@ package mock
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
-// replacePathVars takes a path and matches it to an API endpoint. It iterates over
-// currently configured Transformers, and looks for a match between an existing Transformer
-// value and a value in the path. If it finds a match, it replaces that value in the path
-// with the API symbol, e.g. `:org`, `:username`.
-func (ms *MockServer) replacePathVars(i string) string {
-	parts := strings.Split(i, "/")
+var (
+	pathRegexp = regexp.MustCompile(`~~(?P<key>\w+)~(?P<value>\w+)~~`)
+)
 
-	for _, t := range ms.transformers {
-		switch tr := t.(type) {
-		case *VariableSubstitution:
-			for idx, p := range parts {
-				if p == tr.value {
-					parts[idx] = fmt.Sprintf(":%s", strings.ToLower(tr.key))
-				}
+// parsePath takes a path and matches it to an API endpoint. This works by
+// iterating through the path and searching for path components that match
+// the pattern:
+//   ~~KEY~VALUE~~
+// These will be replaced with :KEY, and a new substitution variable will be
+// added that replaces KEY with VALUE. For instance:
+//   /users/~~user~rae~~/repos
+// is replaced by:
+//   /users/:user/repos
+// and a new substitution for:
+//   user => rae
+// will be created for that request.
+func (ms *MockServer) parsePath(path string) (string, []*VariableSubstitution) {
+	fmt.Println(path)
+	subs := []*VariableSubstitution{}
+	matches := pathRegexp.FindAllStringSubmatch(path, -1)
+	for _, match := range matches {
+		fmt.Println(match)
+		result := make(map[string]string)
+		for i, name := range pathRegexp.SubexpNames() {
+			if i != 0 && name != "" {
+				result[name] = match[i]
 			}
 		}
-	}
+		subs = append(subs, &VariableSubstitution{
+			key:   result["key"],
+			value: result["value"],
+		})
 
-	return strings.Join(parts, "/")
+		path = strings.Replace(path, match[0], fmt.Sprintf(":%s", result["key"]), 1)
+	}
+	fmt.Println(path)
+
+	return path, subs
 }
