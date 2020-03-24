@@ -169,7 +169,7 @@ func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" {
 		path = "index"
 	} else {
-		path = ms.replacePathVars(r.URL.Path)
+		path = ms.replacePathVars(r.URL)
 	}
 
 	mockPath := filepath.Join(ms.mockFilesRoot, r.URL.Host, path)

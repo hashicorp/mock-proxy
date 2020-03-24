@@ -1,6 +1,7 @@
 package mock
 
 import (
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -67,7 +68,10 @@ func TestReplacePathVars(t *testing.T) {
 			ms, err := NewMockServer(tc.options...)
 			require.Nil(t, err)
 
-			got := ms.replacePathVars(tc.input)
+			u, err := url.Parse(tc.input)
+			require.Nil(t, err)
+
+			got := ms.replacePathVars(u)
 
 			assert.Equal(t, tc.want, got)
 		})
