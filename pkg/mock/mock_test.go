@@ -73,6 +73,17 @@ func TestMockServerMockHandler(t *testing.T) {
 			},
 			want: "Hello, Davenport!\n",
 		},
+		{
+			name: "url encoded substitution variable",
+			url:  "example.com/url%2Fencoded",
+			options: []Option{
+				WithMockRoot("testdata/"),
+				WithDefaultVariables(
+					&VariableSubstitution{key: "name", value: "url/encoded"},
+				),
+			},
+			want: "url/encoded\n",
+		},
 	}
 
 	for _, tc := range tcs {
