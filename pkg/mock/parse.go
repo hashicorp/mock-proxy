@@ -16,8 +16,9 @@ func (ms *MockServer) replacePathVars(u *url.URL) string {
 	for _, t := range ms.transformers {
 		switch tr := t.(type) {
 		case *VariableSubstitution:
-			search := url.PathEscape(tr.value)
+			search := tr.value
 			for idx, p := range parts {
+				p, _ = url.PathUnescape(p)
 				if p == search {
 					parts[idx] = fmt.Sprintf(":%s", strings.ToLower(tr.key))
 				}

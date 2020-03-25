@@ -84,6 +84,17 @@ func TestMockServerMockHandler(t *testing.T) {
 			},
 			want: "url/encoded\n",
 		},
+		{
+			name: "url encoded alternative characters",
+			url:  "example.com/url%2Fencoded%2Dvalue",
+			options: []Option{
+				WithMockRoot("testdata/"),
+				WithDefaultVariables(
+					&VariableSubstitution{key: "name", value: "url/encoded-value"},
+				),
+			},
+			want: "url/encoded-value\n",
+		},
 	}
 
 	for _, tc := range tcs {
