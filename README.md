@@ -1,8 +1,6 @@
 # VCS Mock Proxy
 _a.k.a. VCS Moxy_
 
-`vcs-mock-proxy-poc` is a POC intercept proxy for VCS tests in [atlas](https://github.com/hashicorp/atlas). There is an RFC in progress to request it be allowed to drop the `-poc`.
-
 It is written in Go and relies on the HTTP intercept capabilities of [ICAP](https://tools.ietf.org/html/rfc3507), as implemented in [go-icap/icap](https://github.com/go-icap/icap). In short, ICAP allows us to specify a set of criteria to match all requests against and then routes them accordingly. When a request hits the proxy, if it matches this criteria then a semi-hardcoded response is automatically short circuited in. If it does not match the criteria, the request proceeds as normal.
 
 ## Layout
