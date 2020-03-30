@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/hashicorp/vcs-mock-proxy/pkg/mock"
 )
@@ -15,7 +17,17 @@ func main() {
 }
 
 func inner() error {
-	m, err := mock.NewMockServer()
+	options := []mock.Option{}
+
+	if portString := os.Getenv("API_PORT"); portString != "" {
+		port, err := strconv.Atoi(portString)
+		if err != nil {
+			return fmt.Errorf("invalid API_PORT: %w", err)
+		}
+		options = append(options, mock.WithAPIPort(port))
+	}
+
+	m, err := mock.NewMockServer(options...)
 	if err != nil {
 		return err
 	}
