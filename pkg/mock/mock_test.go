@@ -30,6 +30,19 @@ func TestNewMockServer(t *testing.T) {
 				mockFilesRoot: "testdata/",
 			},
 		},
+		{
+			name: "alternate API port",
+			options: []Option{
+				WithMockRoot("testdata/"),
+				WithAPIPort(39980),
+			},
+			want: &MockServer{
+				apiPort:  39980,
+				icapPort: 11344,
+
+				mockFilesRoot: "testdata/",
+			},
+		},
 	}
 
 	for _, tc := range tcs {

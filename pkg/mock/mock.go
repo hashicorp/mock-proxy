@@ -97,6 +97,15 @@ func WithDefaultVariables(vars ...*VariableSubstitution) Option {
 	}
 }
 
+// WithAPIPort is a functional option that changes the port the Mock server
+// runs its API on.
+func WithAPIPort(port int) Option {
+	return func(m *MockServer) error {
+		m.apiPort = port
+		return nil
+	}
+}
+
 // Serve starts the actual servers and handlers, then waits for them to exit
 // or for an Interrupt signal.
 func (ms *MockServer) Serve() error {
