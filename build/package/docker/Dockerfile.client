@@ -1,5 +1,5 @@
 FROM alpine:3.9
-RUN apk add --no-cache ca-certificates curl bash
+RUN apk add --no-cache ca-certificates curl bash git
 WORKDIR /
 
 ENV DOCKERIZE_VERSION v0.6.1

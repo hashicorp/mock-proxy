@@ -4,7 +4,7 @@ version: 2
 references:
   images:
     go: &GO_IMAGE circleci/golang:1.13.6
-    lint: &LINT_IMAGE quay.io/hashicorp/hc-golangci-lint:1.16.0
+    lint: &LINT_IMAGE quay.io/hashicorp/hc-golangci-lint:1.23.8
     aws: &AWS_CLI_IMAGE quay.io/hashicorp/hc-awscli:1.16.313
 
 workflows:

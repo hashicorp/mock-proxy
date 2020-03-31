@@ -1,6 +1,7 @@
 package mock
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -8,10 +9,16 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/go-icap/icap"
+	"gopkg.in/src-d/go-billy.v4/osfs"
+	"gopkg.in/src-d/go-git.v4/plumbing/format/pktline"
+	"gopkg.in/src-d/go-git.v4/plumbing/protocol/packp"
+	"gopkg.in/src-d/go-git.v4/plumbing/transport"
+	gitserver "gopkg.in/src-d/go-git.v4/plumbing/transport/server"
 
 	"github.com/hashicorp/vcs-mock-proxy/internal/cachedfs"
 )
@@ -157,6 +164,7 @@ func (ms *MockServer) interception(w icap.ResponseWriter, req *icap.Request) {
 		h.Set("Transfer-Preview", "*")
 		w.WriteHeader(http.StatusOK, nil, false)
 	case "REQMOD":
+		fmt.Println("REQMOD: ", req.Request.Host)
 		if ms.cachedFS.PathExists(filepath.Join(ms.mockFilesRoot, req.Request.Host)) {
 			icap.ServeLocally(w, req)
 		} else {
@@ -174,9 +182,101 @@ func (ms *MockServer) interception(w icap.ResponseWriter, req *icap.Request) {
 // mockHandler receives requests and based on them, returns one of the known
 // .mock files, after running it through the configured Transformers.
 func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
+	// TODO: This would need to be more complicated, detecting if this is a
+	// git or http mock.
+	fmt.Println("MOCK: ", r.URL.String())
 	var path string
 	if r.URL.Path == "/" {
 		path = "index"
+	} else if strings.HasPrefix(r.URL.String(), "http://github.com/example-repo") {
+		fmt.Println("detected a git clone attempt")
+
+		mockFS := osfs.New(filepath.Join(ms.mockFilesRoot, "git"))
+		loader := gitserver.NewFilesystemLoader(
+			mockFS,
+		)
+		gitServer := gitserver.NewServer(loader)
+
+		ep, err := transport.NewEndpoint(filepath.Join("example-repo", ".git"))
+		if err != nil {
+			fmt.Printf("failed creating transport: %s\n", err.Error())
+			http.Error(w, fmt.Sprintf("failed creating transport: %s", err.Error()), http.StatusInternalServerError)
+			return
+		}
+
+		fs, _ := mockFS.Chroot(ep.Path)
+		fmt.Printf("attempting to load git repo at: %+v\n", fs)
+
+		sess, err := gitServer.NewUploadPackSession(ep, nil)
+		if err != nil {
+			fmt.Printf("failed creating git-upload-pack session: %s\n", err.Error())
+			http.Error(w, fmt.Sprintf("failed creating git-upload-pack session: %s", err.Error()), http.StatusInternalServerError)
+			return
+		}
+		defer sess.Close()
+
+		// TODO Instead of doing like this, do it better. Parse the operation
+		// out and switch on it.
+		if strings.HasSuffix(r.URL.String(), "info/refs?service=git-upload-pack") {
+			fmt.Println("detected a reference advertisement request")
+			refs, err := sess.AdvertisedReferences()
+			if err != nil {
+				fmt.Printf("failed to load reference advertisement: %s\n", err.Error())
+				http.Error(w, fmt.Sprintf("failed to load reference advertisement: %s", err.Error()), http.StatusInternalServerError)
+				return
+			}
+
+			// To succesfully interact with smart git clone, we must set a
+			// prefix saying which service this is.
+			refs.Prefix = [][]byte{
+				[]byte(
+					fmt.Sprintf("# service=%s", transport.UploadPackServiceName),
+				),
+				// Note: This is a semantically significant flush, and I don't
+				// really know why, but do not touch.
+				pktline.Flush,
+			}
+			w.Header().Add("Content-Type", "application/x-git-upload-pack-advertisement")
+			w.Header().Add("Cache-Control", "no-cache")
+
+			if err := refs.Encode(w); err != nil {
+				fmt.Printf("failed writing response: %s\n", err.Error())
+				http.Error(w, fmt.Sprintf("failed writing response: %s", err.Error()), http.StatusInternalServerError)
+				return
+			}
+			return
+		} else if strings.HasSuffix(r.URL.String(), "git-upload-pack") {
+			fmt.Println("detected a git-upload-pack request type")
+
+			ctx, cancelFunc := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancelFunc()
+
+			packReq := packp.NewUploadPackRequest()
+			if err := packReq.Decode(r.Body); err != nil {
+				fmt.Printf("invalid git-upload-pack request: %s\n", err.Error())
+				http.Error(w, fmt.Sprintf("invalid git-upload-pack request: %s", err.Error()), http.StatusInternalServerError)
+				return
+			}
+
+			resp, err := sess.UploadPack(ctx, packReq)
+			if err != nil {
+				fmt.Printf("failed uploading pack: %s\n", err.Error())
+				http.Error(w, fmt.Sprintf("failed uploading pack: %s", err.Error()), http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Add("Content-Type", "application/x-git-upload-pack-result")
+			w.Header().Add("Cache-Control", "no-cache")
+
+			if err := resp.Encode(w); err != nil {
+				fmt.Printf("failed writing response: %s\n", err.Error())
+				http.Error(w, fmt.Sprintf("failed writing response: %s", err.Error()), http.StatusInternalServerError)
+				return
+			}
+			return
+		}
+
+		fmt.Println("detected an unknown request type")
 	} else {
 		path = ms.replacePathVars(r.URL)
 	}
