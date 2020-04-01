@@ -13,18 +13,22 @@ import (
 	"github.com/hashicorp/hcl2/hclparse"
 )
 
+// The Route struct represents a single mocked route.
 type Route struct {
 	Host string `hcl:"host"`
 	Path string `hcl:"path"`
 	Type string `hcl:"type"`
 }
 
+// RouteConfig is a type alias for many Routes.
 type RouteConfig []*Route
 
+// RouteConfigHCL is used for converting HCL Blocks to RouteConfig.
 type RouteConfigHCL struct {
 	RouteConfig RouteConfig `hcl:"route,block"`
 }
 
+// ParseRoutes parses an input Routes file, using HCL2, into RouteConfig.
 func ParseRoutes(inFile string) (RouteConfig, error) {
 	input, err := os.Open(inFile)
 	if err != nil {
@@ -64,6 +68,9 @@ func ParseRoutes(inFile string) (RouteConfig, error) {
 	return rc.RouteConfig, nil
 }
 
+// ParseURL is used by a single Route to convert that route to a filepath, a
+// list of transforms created by dynamic URLs, and an error. This should only
+// by used on a URL that the Route Matches, as determined below.
 func (r *Route) ParseURL(in *url.URL) (string, []Transformer, error) {
 	switch r.Type {
 	case "http":
@@ -88,6 +95,13 @@ func (r *Route) ParseURL(in *url.URL) (string, []Transformer, error) {
 	}
 }
 
+// findSubstitutions is a helper function that abstracts out some pretty nasty
+// regexp logic. In short, take a dynamic URL, and a templating Path from the
+// Route, and convert the dynamic URL to a set of transformations with the
+// :foo values turned into keys and the actual values as values.
+//   Template: /mypath/:foo/bar/:baz
+//   Input:    /mypath/1/bar/2
+//   Output:   []VariableSubstitution{{key: foo, value: 1},{key: baz, value: 2}}
 func findSubstitutions(tmplPath, inputPath string) ([]Transformer, error) {
 	// First, generate a regexp with capture groups to find everywhere the
 	// Route Path has a /:foo/ or /:foo value.
@@ -137,6 +151,7 @@ func findSubstitutions(tmplPath, inputPath string) ([]Transformer, error) {
 	return transformers, nil
 }
 
+// match is a helper function that says if a single Route matches a single URL.
 func (r *Route) match(in *url.URL) bool {
 	// Easy case, if the hosts don't match, they don't match
 	if r.Host != in.Host {
@@ -173,6 +188,8 @@ func (r *Route) match(in *url.URL) bool {
 	}
 }
 
+// MatchRoute returns the Route from a list of Routes that matches a given
+// input URL.
 func (rc RouteConfig) MatchRoute(in *url.URL) (*Route, error) {
 	matches := []*Route{}
 	for _, route := range rc {

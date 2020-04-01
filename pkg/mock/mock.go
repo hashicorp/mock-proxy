@@ -220,6 +220,11 @@ func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	path, localTransformers, err := route.ParseURL(r.URL)
+	if err != nil {
+		ms.logger.Error("failed to parse mock URL for route", "error", err.Error())
+		http.Error(w, fmt.Sprintf("failed to parse mock URL for route: %s",
+			err.Error()), http.StatusInternalServerError)
+	}
 	switch route.Type {
 	case "http":
 		ms.logger.Info("detected an http mock attempt")
