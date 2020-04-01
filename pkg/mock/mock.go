@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/go-icap/icap"
+	"github.com/hashicorp/go-hclog"
 	"gopkg.in/src-d/go-billy.v4/osfs"
 	"gopkg.in/src-d/go-git.v4/plumbing/format/pktline"
 	"gopkg.in/src-d/go-git.v4/plumbing/protocol/packp"
@@ -47,6 +48,8 @@ type MockServer struct {
 	transformers []Transformer
 
 	cachedFS *cachedfs.CachedFS
+
+	logger hclog.Logger
 }
 
 // NewMockServer is a creator for a new MockServer. It makes use of functional
@@ -57,6 +60,8 @@ func NewMockServer(options ...Option) (*MockServer, error) {
 
 		icapPort: 11344,
 		apiPort:  80,
+
+		logger: hclog.NewNullLogger(),
 	}
 
 	cf, err := cachedfs.NewCachedFS(
@@ -113,6 +118,18 @@ func WithAPIPort(port int) Option {
 	}
 }
 
+// WithLogger is a functional option that configures the Mock server with a
+// given go-hclog Logger.
+func WithLogger(logger hclog.Logger) Option {
+	return func(m *MockServer) error {
+		if logger == nil {
+			return fmt.Errorf("cannot call WithLogger with nil Logger, use NewNullLogger instead")
+		}
+		m.logger = logger
+		return nil
+	}
+}
+
 // Serve starts the actual servers and handlers, then waits for them to exit
 // or for an Interrupt signal.
 func (ms *MockServer) Serve() error {
@@ -132,19 +149,28 @@ func (ms *MockServer) Serve() error {
 	signal.Notify(killSignal, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
+		ms.logger.Info("starting icap server on", "port", ms.icapPort)
 		icapErrC <- icap.ListenAndServe(fmt.Sprintf(":%d", ms.icapPort), nil)
 	}()
 	go func() {
+		ms.logger.Info("starting api server on", "port", ms.apiPort)
 		apiErrC <- http.ListenAndServe(fmt.Sprintf(":%d", ms.apiPort), apiMux)
 	}()
 
 	for {
 		select {
 		case err := <-icapErrC:
+			if err != nil {
+				ms.logger.Error("exiting due to icap error", "error", err.Error())
+			}
 			return err
 		case err := <-apiErrC:
+			if err != nil {
+				ms.logger.Error("exiting due to api error", "error", err.Error())
+			}
 			return err
-		case <-killSignal:
+		case sig := <-killSignal:
+			ms.logger.Info("exiting due to os signal", "signal", sig)
 			return nil
 		}
 	}
@@ -164,7 +190,7 @@ func (ms *MockServer) interception(w icap.ResponseWriter, req *icap.Request) {
 		h.Set("Transfer-Preview", "*")
 		w.WriteHeader(http.StatusOK, nil, false)
 	case "REQMOD":
-		fmt.Println("REQMOD: ", req.Request.Host)
+		ms.logger.Info("REQMOD request for", "host", req.Request.Host)
 		if ms.cachedFS.PathExists(filepath.Join(ms.mockFilesRoot, req.Request.Host)) {
 			icap.ServeLocally(w, req)
 		} else {
@@ -175,7 +201,7 @@ func (ms *MockServer) interception(w icap.ResponseWriter, req *icap.Request) {
 		// This ICAP server is only able to handle REQMOD, will not be using
 		// RESMOD mode.
 		w.WriteHeader(http.StatusMethodNotAllowed, nil, false)
-		fmt.Println("Invalid request method")
+		ms.logger.Error("invalid request method to ICAP server", "method", req.Method)
 	}
 }
 
@@ -184,12 +210,12 @@ func (ms *MockServer) interception(w icap.ResponseWriter, req *icap.Request) {
 func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: This would need to be more complicated, detecting if this is a
 	// git or http mock.
-	fmt.Println("MOCK: ", r.URL.String())
+	ms.logger.Info("MOCK request", "url", r.URL.String())
 	var path string
 	if r.URL.Path == "/" {
 		path = "index"
 	} else if strings.HasPrefix(r.URL.String(), "http://github.com/example-repo") {
-		fmt.Println("detected a git clone attempt")
+		ms.logger.Info("detected a git clone attempt")
 
 		mockFS := osfs.New(filepath.Join(ms.mockFilesRoot, "git"))
 		loader := gitserver.NewFilesystemLoader(
@@ -199,18 +225,20 @@ func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 
 		ep, err := transport.NewEndpoint(filepath.Join("example-repo", ".git"))
 		if err != nil {
-			fmt.Printf("failed creating transport: %s\n", err.Error())
-			http.Error(w, fmt.Sprintf("failed creating transport: %s", err.Error()), http.StatusInternalServerError)
+			ms.logger.Error("failed creating transport", "error", err.Error())
+			http.Error(w, fmt.Sprintf("failed creating transport: %s",
+				err.Error()), http.StatusInternalServerError)
 			return
 		}
 
 		fs, _ := mockFS.Chroot(ep.Path)
-		fmt.Printf("attempting to load git repo at: %+v\n", fs)
+		ms.logger.Info("attempting to load local git repo", "filepath", fs)
 
 		sess, err := gitServer.NewUploadPackSession(ep, nil)
 		if err != nil {
-			fmt.Printf("failed creating git-upload-pack session: %s\n", err.Error())
-			http.Error(w, fmt.Sprintf("failed creating git-upload-pack session: %s", err.Error()), http.StatusInternalServerError)
+			ms.logger.Error("failed creating git-upload-pack session", "error", err.Error())
+			http.Error(w, fmt.Sprintf("failed creating git-upload-pack session: %s",
+				err.Error()), http.StatusInternalServerError)
 			return
 		}
 		defer sess.Close()
@@ -218,11 +246,12 @@ func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 		// TODO Instead of doing like this, do it better. Parse the operation
 		// out and switch on it.
 		if strings.HasSuffix(r.URL.String(), "info/refs?service=git-upload-pack") {
-			fmt.Println("detected a reference advertisement request")
+			ms.logger.Info("detected a reference advertisement request")
 			refs, err := sess.AdvertisedReferences()
 			if err != nil {
-				fmt.Printf("failed to load reference advertisement: %s\n", err.Error())
-				http.Error(w, fmt.Sprintf("failed to load reference advertisement: %s", err.Error()), http.StatusInternalServerError)
+				ms.logger.Error("failed to load reference advertisement", "error", err.Error())
+				http.Error(w, fmt.Sprintf("failed to load reference advertisement: %s",
+					err.Error()), http.StatusInternalServerError)
 				return
 			}
 
@@ -240,28 +269,31 @@ func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add("Cache-Control", "no-cache")
 
 			if err := refs.Encode(w); err != nil {
-				fmt.Printf("failed writing response: %s\n", err.Error())
-				http.Error(w, fmt.Sprintf("failed writing response: %s", err.Error()), http.StatusInternalServerError)
+				ms.logger.Error("failed writing response", "error", err.Error())
+				http.Error(w, fmt.Sprintf("failed writing response: %s",
+					err.Error()), http.StatusInternalServerError)
 				return
 			}
 			return
 		} else if strings.HasSuffix(r.URL.String(), "git-upload-pack") {
-			fmt.Println("detected a git-upload-pack request type")
+			ms.logger.Info("detected a git-upload-pack request")
 
 			ctx, cancelFunc := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancelFunc()
 
 			packReq := packp.NewUploadPackRequest()
 			if err := packReq.Decode(r.Body); err != nil {
-				fmt.Printf("invalid git-upload-pack request: %s\n", err.Error())
-				http.Error(w, fmt.Sprintf("invalid git-upload-pack request: %s", err.Error()), http.StatusInternalServerError)
+				ms.logger.Error("invalid git-upload-pack request", "error", err.Error())
+				http.Error(w, fmt.Sprintf("invalid git-upload-pack request: %s",
+					err.Error()), http.StatusInternalServerError)
 				return
 			}
 
 			resp, err := sess.UploadPack(ctx, packReq)
 			if err != nil {
-				fmt.Printf("failed uploading pack: %s\n", err.Error())
-				http.Error(w, fmt.Sprintf("failed uploading pack: %s", err.Error()), http.StatusInternalServerError)
+				ms.logger.Error("failed uploading pack", "error", err.Error())
+				http.Error(w, fmt.Sprintf("failed uploading pack: %s",
+					err.Error()), http.StatusInternalServerError)
 				return
 			}
 
@@ -269,14 +301,18 @@ func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add("Cache-Control", "no-cache")
 
 			if err := resp.Encode(w); err != nil {
-				fmt.Printf("failed writing response: %s\n", err.Error())
-				http.Error(w, fmt.Sprintf("failed writing response: %s", err.Error()), http.StatusInternalServerError)
+				ms.logger.Error("failed writing response", "error", err.Error())
+				http.Error(w, fmt.Sprintf("failed writing response: %s",
+					err.Error()), http.StatusInternalServerError)
 				return
 			}
 			return
+		} else {
+			ms.logger.Error("detected an unknown git request type", "url", r.URL.String())
+			http.Error(w, fmt.Sprintf("detected an unknown git request type: %s",
+				r.URL.String()), http.StatusNotFound)
+			return
 		}
-
-		fmt.Println("detected an unknown request type")
 	} else {
 		path = ms.replacePathVars(r.URL)
 	}
