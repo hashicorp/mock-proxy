@@ -20,8 +20,6 @@ import (
 	"gopkg.in/src-d/go-git.v4/plumbing/protocol/packp"
 	"gopkg.in/src-d/go-git.v4/plumbing/transport"
 	gitserver "gopkg.in/src-d/go-git.v4/plumbing/transport/server"
-
-	"github.com/hashicorp/vcs-mock-proxy/internal/cachedfs"
 )
 
 // Transformer is an interface that applies some mutation to a mock response.
@@ -45,9 +43,8 @@ type MockServer struct {
 	icapPort int
 	apiPort  int
 
+	RouteConfig  RouteConfig
 	transformers []Transformer
-
-	cachedFS *cachedfs.CachedFS
 
 	logger hclog.Logger
 }
@@ -64,26 +61,27 @@ func NewMockServer(options ...Option) (*MockServer, error) {
 		logger: hclog.NewNullLogger(),
 	}
 
-	cf, err := cachedfs.NewCachedFS(
-		cachedfs.WithSimpleCacheExpiry(1 * time.Minute),
-	)
-	if err != nil {
-		return nil, err
-	}
-	ms.cachedFS = cf
-
 	for _, o := range options {
 		if err := o(ms); err != nil {
 			return nil, err
 		}
 	}
 
-	_, err = os.Open(ms.mockFilesRoot)
+	_, err := os.Open(ms.mockFilesRoot)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"invalid mock file directory %v: %w", ms.mockFilesRoot, err,
 		)
 	}
+
+	rc, err := ParseRoutes(filepath.Join(ms.mockFilesRoot, "routes.hcl"))
+	if err != nil {
+		return nil, fmt.Errorf(
+			"invalid mock routes file %s: %w",
+			filepath.Join(ms.mockFilesRoot, "routes.hcl"), err,
+		)
+	}
+	ms.RouteConfig = rc
 
 	return ms, nil
 }
@@ -191,7 +189,8 @@ func (ms *MockServer) interception(w icap.ResponseWriter, req *icap.Request) {
 		w.WriteHeader(http.StatusOK, nil, false)
 	case "REQMOD":
 		ms.logger.Info("REQMOD request for", "host", req.Request.Host)
-		if ms.cachedFS.PathExists(filepath.Join(ms.mockFilesRoot, req.Request.Host)) {
+		route, _ := ms.RouteConfig.MatchRoute(req.Request.URL)
+		if route != nil {
 			icap.ServeLocally(w, req)
 		} else {
 			// Return the request unmodified.
@@ -208,22 +207,66 @@ func (ms *MockServer) interception(w icap.ResponseWriter, req *icap.Request) {
 // mockHandler receives requests and based on them, returns one of the known
 // .mock files, after running it through the configured Transformers.
 func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: This would need to be more complicated, detecting if this is a
-	// git or http mock.
 	ms.logger.Info("MOCK request", "url", r.URL.String())
-	var path string
-	if r.URL.Path == "/" {
-		path = "index"
-	} else if strings.HasPrefix(r.URL.String(), "http://github.com/example-repo") {
+	route, err := ms.RouteConfig.MatchRoute(r.URL)
+	if err != nil || route == nil {
+		if err == nil {
+			err = fmt.Errorf("found no matching route for %s", r.URL.String())
+		}
+		ms.logger.Error("failed to find a matching route", "error", err.Error())
+		http.Error(w, fmt.Sprintf("failed to find a matching route: %s",
+			err.Error()), http.StatusInternalServerError)
+		return
+	}
+
+	path, localTransformers, err := route.ParseURL(r.URL)
+	switch route.Type {
+	case "http":
+		ms.logger.Info("detected an http mock attempt")
+		fileName := filepath.Join(ms.mockFilesRoot, path)
+		mock, err := os.Open(fileName)
+		if err != nil {
+			ms.logger.Error("failed opening mock file", "error", err.Error())
+			http.Error(w, fmt.Sprintf("failed opening mock file: %s", err.Error()), http.StatusNotFound)
+			return
+		}
+
+		// Apply the configured transformations to the mock file
+		transformers := append(ms.transformers, localTransformers...)
+		var res io.Reader = mock
+		for _, t := range transformers {
+			res, err = t.Transform(res)
+			if err != nil {
+				ms.logger.Error("error applying transformations", "error", err.Error())
+				http.Error(
+					w,
+					fmt.Sprintf("error applying transformations: %s", err.Error()),
+					http.StatusInternalServerError,
+				)
+				return
+			}
+		}
+
+		_, err = io.Copy(w, res)
+		if err != nil {
+			ms.logger.Error("failed copying to response", "error", err.Error())
+			http.Error(
+				w,
+				"failed copying to response",
+				http.StatusInternalServerError,
+			)
+			return
+		}
+	case "git":
 		ms.logger.Info("detected a git clone attempt")
 
-		mockFS := osfs.New(filepath.Join(ms.mockFilesRoot, "git"))
+		mockFS := osfs.New(filepath.Join(ms.mockFilesRoot))
 		loader := gitserver.NewFilesystemLoader(
 			mockFS,
 		)
 		gitServer := gitserver.NewServer(loader)
 
-		ep, err := transport.NewEndpoint(filepath.Join("example-repo", ".git"))
+		ep, err := transport.NewEndpoint(path)
 		if err != nil {
 			ms.logger.Error("failed creating transport", "error", err.Error())
 			http.Error(w, fmt.Sprintf("failed creating transport: %s",
@@ -243,8 +286,6 @@ func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		defer sess.Close()
 
-		// TODO Instead of doing like this, do it better. Parse the operation
-		// out and switch on it.
 		if strings.HasSuffix(r.URL.String(), "info/refs?service=git-upload-pack") {
 			ms.logger.Info("detected a reference advertisement request")
 			refs, err := sess.AdvertisedReferences()
@@ -313,40 +354,10 @@ func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 				r.URL.String()), http.StatusNotFound)
 			return
 		}
-	} else {
-		path = ms.replacePathVars(r.URL)
-	}
-
-	mockPath := filepath.Join(ms.mockFilesRoot, r.URL.Host, path)
-	fileName := fmt.Sprintf("%s.mock", mockPath)
-
-	mock, err := os.Open(fileName)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("failed opening mock file: %s", err.Error()), http.StatusNotFound)
-		return
-	}
-
-	// Apply the configured transformations to the mock file
-	var res io.Reader = mock
-	for _, t := range ms.transformers {
-		res, err = t.Transform(res)
-		if err != nil {
-			http.Error(
-				w,
-				fmt.Sprintf("error applying transformations: %s", err.Error()),
-				http.StatusInternalServerError,
-			)
-			return
-		}
-	}
-
-	_, err = io.Copy(w, res)
-	if err != nil {
-		http.Error(
-			w,
-			"failed copying to response",
-			http.StatusInternalServerError,
-		)
+	default:
+		ms.logger.Error("detected an unknown route type", "url", r.URL.String())
+		http.Error(w, fmt.Sprintf("detected an unknown route type: %s",
+			r.URL.String()), http.StatusNotFound)
 		return
 	}
 }
