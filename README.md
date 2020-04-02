@@ -30,3 +30,42 @@ To keep an eye on the proxy logs, including everyone's favorite debugger `Printf
 This project uses Go [modules](https://github.com/golang/go/wiki/Modules) without a vendor dir.
 
 This Wiki will probably have better advice about adding / upgrading dependencies than can be stated here.
+
+## Routes File
+
+The Routes file defines which endpoints should be mocked. It is defined in HCL, and should be stored in your mocks directory at `routes.hcl`.
+
+Create each route as a block. The host should match the hostname of the site you want to mock. The path matches the path, but you can use rails route style `:foo` substitutions to make dynamic URLs. The type can either be `git` or `http`, depending on whether you want to mock a git clone operation or not.
+
+```hcl
+# You can reach this at any /orgs/$VALUE/repos request, and a substitution will
+# be added that replaces {key=org, value=$VALUE}
+route {
+    host = "api.github.com"
+    path = "/orgs/:org/repos"
+    type = "http"
+}
+```
+
+Do not create overlapping routes. This will cause an error, as the mock routing logic cannot determine which route to apply to a given request.
+
+## Mocking Git Clones
+
+vcs-mock-proxy also supports mocking Git Clones made via HTTP. To do so, add a route to your routes.hcl file:
+
+```hcl
+route {
+    host = "github.com"
+    path = "/example-repo"
+    type = "git"
+}
+```
+
+You'll next need to add a directory (for this example) at `/mocks/git/github.com/example-repo`. In this repo, you can then run a script `/hack/prep-git-mocks.sh` to automatically initialize a git repo. Don't commit this repo, as managing submodules is a pain. You can unstage that initialization with another script `/hack/unstage-git-mocks.sh`.
+
+Once you've added a route, a directory exists at the correct path, and you've initialized git in it, you can run a clone by starting up the local dev environment and making an HTTP clone request:
+
+```
+./hack/local-dev-up.sh
+git clone http://github.com/example-repo
+```

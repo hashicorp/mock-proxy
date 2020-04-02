@@ -2,16 +2,16 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vcs-mock-proxy/pkg/mock"
 )
 
 func main() {
 	if err := inner(); err != nil {
-		log.Printf("vcs-mock-proxy error: %s\n", err)
+		hclog.Default().Error("vcs-mock-proxy error: %s\n", err)
 		os.Exit(1)
 	}
 }
@@ -26,6 +26,16 @@ func inner() error {
 		}
 		options = append(options, mock.WithAPIPort(port))
 	}
+
+	logLevel := "INFO"
+	if envLog := os.Getenv("LOG_LEVEL"); envLog != "" {
+		logLevel = envLog
+	}
+
+	options = append(options, mock.WithLogger(hclog.New(&hclog.LoggerOptions{
+		Name:  "vcs-mock-proxy",
+		Level: hclog.LevelFromString(logLevel),
+	})))
 
 	m, err := mock.NewMockServer(options...)
 	if err != nil {

@@ -69,7 +69,7 @@ func TestMockServerMockHandler(t *testing.T) {
 	}{
 		{
 			name: "simple",
-			url:  "example.com/simple",
+			url:  "http://example.com/simple",
 			options: []Option{
 				WithMockRoot("testdata/"),
 			},
@@ -77,7 +77,7 @@ func TestMockServerMockHandler(t *testing.T) {
 		},
 		{
 			name: "substitutions",
-			url:  "example.com/substitutions",
+			url:  "http://example.com/substitutions",
 			options: []Option{
 				WithMockRoot("testdata/"),
 				WithDefaultVariables(
@@ -87,24 +87,26 @@ func TestMockServerMockHandler(t *testing.T) {
 			want: "Hello, Davenport!\n",
 		},
 		{
-			name: "url encoded substitution variable",
-			url:  "example.com/url%2Fencoded",
+			name: "dynamic url",
+			url:  "http://example.com/users/russell",
 			options: []Option{
 				WithMockRoot("testdata/"),
-				WithDefaultVariables(
-					&VariableSubstitution{key: "name", value: "url/encoded"},
-				),
+			},
+			want: "russell\n",
+		},
+		{
+			name: "url encoded substitution variable",
+			url:  "http://example.com/users/url%2Fencoded",
+			options: []Option{
+				WithMockRoot("testdata/"),
 			},
 			want: "url/encoded\n",
 		},
 		{
 			name: "url encoded alternative characters",
-			url:  "example.com/url%2Fencoded%2Dvalue",
+			url:  "http://example.com/users/url%2Fencoded%2Dvalue",
 			options: []Option{
 				WithMockRoot("testdata/"),
-				WithDefaultVariables(
-					&VariableSubstitution{key: "name", value: "url/encoded-value"},
-				),
 			},
 			want: "url/encoded-value\n",
 		},
