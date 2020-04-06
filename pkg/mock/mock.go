@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -20,6 +21,10 @@ import (
 	"gopkg.in/src-d/go-git.v4/plumbing/protocol/packp"
 	"gopkg.in/src-d/go-git.v4/plumbing/transport"
 	gitserver "gopkg.in/src-d/go-git.v4/plumbing/transport/server"
+)
+
+const (
+	DesiredStatusCodeHeader = "X-Desired-Response-Code"
 )
 
 // Transformer is an interface that applies some mutation to a mock response.
@@ -208,6 +213,20 @@ func (ms *MockServer) interception(w icap.ResponseWriter, req *icap.Request) {
 // .mock files, after running it through the configured Transformers.
 func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 	ms.logger.Info("MOCK request", "url", r.URL.String())
+
+	successCode := http.StatusOK
+	successCodeString := r.Header.Get(DesiredStatusCodeHeader)
+	if successCodeString != "" {
+		var err error
+		successCode, err = strconv.Atoi(successCodeString)
+		if err != nil {
+			ms.logger.Error(fmt.Sprintf("failed to parse %s", DesiredStatusCodeHeader),
+				"error", err.Error())
+			http.Error(w, fmt.Sprintf("failed to parse %s: %s",
+				DesiredStatusCodeHeader, err.Error()), http.StatusInternalServerError)
+		}
+	}
+
 	route, err := ms.RouteConfig.MatchRoute(r.URL)
 	if err != nil || route == nil {
 		if err == nil {
@@ -252,6 +271,7 @@ func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		w.WriteHeader(successCode)
 		_, err = io.Copy(w, res)
 		if err != nil {
 			ms.logger.Error("failed copying to response", "error", err.Error())
@@ -314,6 +334,7 @@ func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add("Content-Type", "application/x-git-upload-pack-advertisement")
 			w.Header().Add("Cache-Control", "no-cache")
 
+			w.WriteHeader(successCode)
 			if err := refs.Encode(w); err != nil {
 				ms.logger.Error("failed writing response", "error", err.Error())
 				http.Error(w, fmt.Sprintf("failed writing response: %s",
@@ -346,6 +367,7 @@ func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add("Content-Type", "application/x-git-upload-pack-result")
 			w.Header().Add("Cache-Control", "no-cache")
 
+			w.WriteHeader(successCode)
 			if err := resp.Encode(w); err != nil {
 				ms.logger.Error("failed writing response", "error", err.Error())
 				http.Error(w, fmt.Sprintf("failed writing response: %s",
