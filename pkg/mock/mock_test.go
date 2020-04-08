@@ -62,10 +62,12 @@ func TestNewMockServer(t *testing.T) {
 
 func TestMockServerMockHandler(t *testing.T) {
 	tcs := []struct {
-		name    string
-		options []Option
-		url     string
-		want    string
+		name     string
+		options  []Option
+		url      string
+		headers  map[string]string
+		want     string
+		wantCode int
 	}{
 		{
 			name: "simple",
@@ -110,6 +112,18 @@ func TestMockServerMockHandler(t *testing.T) {
 			},
 			want: "url/encoded-value\n",
 		},
+		{
+			name: "with X-Desired-Response-Code",
+			url:  "http://example.com/users/404",
+			options: []Option{
+				WithMockRoot("testdata/"),
+			},
+			headers: map[string]string{
+				"X-Desired-Response-Code": "404",
+			},
+			want:     "404\n",
+			wantCode: 404,
+		},
 	}
 
 	for _, tc := range tcs {
@@ -123,11 +137,19 @@ func TestMockServerMockHandler(t *testing.T) {
 			req, err := http.NewRequest(http.MethodGet, tc.url, nil)
 			require.Nil(t, err)
 
+			for k, v := range tc.headers {
+				req.Header.Add(k, v)
+			}
+
 			recorder := httptest.NewRecorder()
 
 			ms.mockHandler(recorder, req)
 
-			assert.Equal(t, http.StatusOK, recorder.Result().StatusCode)
+			wantCode := http.StatusOK
+			if tc.wantCode != 0 {
+				wantCode = tc.wantCode
+			}
+			assert.Equal(t, wantCode, recorder.Result().StatusCode)
 
 			gotBytes, err := ioutil.ReadAll(recorder.Result().Body)
 			require.Nil(t, err)
