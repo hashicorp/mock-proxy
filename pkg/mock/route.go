@@ -191,21 +191,29 @@ func (r *Route) match(in *url.URL) bool {
 // MatchRoute returns the Route from a list of Routes that matches a given
 // input URL.
 func (rc RouteConfig) MatchRoute(in *url.URL) (*Route, error) {
-	matches := []*Route{}
+	var match *Route
+	var specificity int
 	for _, route := range rc {
 		if route.match(in) {
-			matches = append(matches, route)
+			// "specificity" is a measure of how many route components match
+			// between the input and the matching route.
+			currentSpecificity := len(strings.Split(route.Path, "/"))
+
+			// An equally specific match is an error. Overlapping routes of
+			// this type cannot be easily chosen between.
+			if currentSpecificity == specificity {
+				return nil, fmt.Errorf("multiple routes matched input: %s", in.String())
+			}
+
+			// A more specific match replaces the current match.
+			if currentSpecificity > specificity {
+				specificity = currentSpecificity
+				match = route
+			}
+
+			// A less specific match is ignored.
 		}
 	}
 
-	if len(matches) == 0 {
-		// This is just a miss, that's okay.
-		return nil, nil
-	} else if len(matches) > 1 {
-		// Overlaps are a bad problem, if multiple routes matches then input,
-		// error.
-		return nil, fmt.Errorf("multiple routes matched input: %s", in.String())
-	}
-
-	return matches[0], nil
+	return match, nil
 }

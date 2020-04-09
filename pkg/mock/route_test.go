@@ -186,6 +186,20 @@ func TestMatchRoute(t *testing.T) {
 				Type: "http",
 			},
 		},
+		{
+			name: "legal overlap",
+			routeConfig: []*Route{
+				{Host: "api.github.com", Path: "/orgs/:org", Type: "http"},
+				{Host: "api.github.com", Path: "/orgs/:org/repos", Type: "http"},
+				{Host: "api.github.com", Path: "/orgs/:org/repos/tree", Type: "http"},
+			},
+			url: "http://api.github.com/orgs/hashicorp/repos",
+			want: &Route{
+				Host: "api.github.com",
+				Path: "/orgs/:org/repos",
+				Type: "http",
+			},
+		},
 	}
 
 	for _, tc := range tcs {
