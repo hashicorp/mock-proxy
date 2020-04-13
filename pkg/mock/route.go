@@ -72,11 +72,19 @@ func ParseRoutes(inFile string) (RouteConfig, error) {
 // list of transforms created by dynamic URLs, and an error. This should only
 // by used on a URL that the Route Matches, as determined below.
 func (r *Route) ParseURL(in *url.URL) (string, []Transformer, error) {
+	// Parse r.Host as an HTTP URL, then take its Hostname to strip ports, the
+	// custom port breaks paths down the road.
+	u, err := url.Parse("http://" + r.Host)
+	if err != nil {
+		return "", []Transformer{}, fmt.Errorf("error parsing route Host: %w", err)
+	}
+	routeHostname := u.Hostname()
+
 	switch r.Type {
 	case "http":
 		// An early escape for empty paths
 		if r.Path == "" || r.Path == "/" {
-			return fmt.Sprintf("%s/index.mock", r.Host), []Transformer{}, nil
+			return fmt.Sprintf("%s/index.mock", routeHostname), []Transformer{}, nil
 		}
 
 		subs, err := findSubstitutions(r.Path, in.EscapedPath())
@@ -85,11 +93,11 @@ func (r *Route) ParseURL(in *url.URL) (string, []Transformer, error) {
 				fmt.Errorf("error performing substitutions: %w", err)
 		}
 
-		return fmt.Sprintf("%s%s.mock", r.Host, r.Path), subs, nil
+		return fmt.Sprintf("%s%s.mock", routeHostname, r.Path), subs, nil
 	case "git":
 		// At this time, you can't template anything about git repos, because
 		// of how references work.
-		return filepath.Join("/git", r.Host, r.Path, ".git"), []Transformer{}, nil
+		return filepath.Join("/git", routeHostname, r.Path, ".git"), []Transformer{}, nil
 	default:
 		return "", []Transformer{}, fmt.Errorf("unknown route type %s", r.Type)
 	}
