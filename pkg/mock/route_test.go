@@ -76,6 +76,17 @@ func TestParseURL(t *testing.T) {
 			wantPath:         "/git/github.com/example-repo/.git",
 			wantTransformers: []Transformer{},
 		},
+		{
+			name: "git strip ports",
+			route: &Route{
+				Host: "gitlab.tfe:31080",
+				Path: "/test/test-project",
+				Type: "git",
+			},
+			url:              "http://gitlab.tfe:31080/test/test-project",
+			wantPath:         "/git/gitlab.tfe/test/test-project/.git",
+			wantTransformers: []Transformer{},
+		},
 	}
 
 	for _, tc := range tcs {
