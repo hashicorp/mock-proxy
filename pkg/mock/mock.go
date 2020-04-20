@@ -325,7 +325,12 @@ func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Add the Shallow capability
-			refs.Capabilities.Add(capability.Shallow)
+			if err := refs.Capabilities.Add(capability.Shallow); err != nil {
+				ms.logger.Error("failed to add shallow capability", "error", err.Error())
+				http.Error(w, fmt.Sprintf("failed to add shallow capability: %s",
+					err.Error()), http.StatusInternalServerError)
+				return
+			}
 
 			// To succesfully interact with smart git clone, we must set a
 			// prefix saying which service this is.
