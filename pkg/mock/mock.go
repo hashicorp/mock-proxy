@@ -3,10 +3,12 @@ package mock
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strconv"
@@ -18,7 +20,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"gopkg.in/src-d/go-billy.v4/osfs"
 	"gopkg.in/src-d/go-git.v4/plumbing/format/pktline"
-	"gopkg.in/src-d/go-git.v4/plumbing/protocol/packp"
+	"gopkg.in/src-d/go-git.v4/plumbing/protocol/packp/capability"
 	"gopkg.in/src-d/go-git.v4/plumbing/transport"
 	gitserver "gopkg.in/src-d/go-git.v4/plumbing/transport/server"
 )
@@ -302,7 +304,7 @@ func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		fs, _ := mockFS.Chroot(ep.Path)
-		ms.logger.Info("attempting to load local git repo", "filepath", fs)
+		ms.logger.Info("attempting to load local git repo", "filepath", fmt.Sprintf("%+v", fs.Root()))
 
 		sess, err := gitServer.NewUploadPackSession(ep, nil)
 		if err != nil {
@@ -315,10 +317,19 @@ func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 
 		if strings.HasSuffix(r.URL.String(), "info/refs?service=git-upload-pack") {
 			ms.logger.Info("detected a reference advertisement request")
+
 			refs, err := sess.AdvertisedReferences()
 			if err != nil {
 				ms.logger.Error("failed to load reference advertisement", "error", err.Error())
 				http.Error(w, fmt.Sprintf("failed to load reference advertisement: %s",
+					err.Error()), http.StatusInternalServerError)
+				return
+			}
+
+			// Add the Shallow capability
+			if err := refs.Capabilities.Add(capability.Shallow); err != nil {
+				ms.logger.Error("failed to add shallow capability", "error", err.Error())
+				http.Error(w, fmt.Sprintf("failed to add shallow capability: %s",
 					err.Error()), http.StatusInternalServerError)
 				return
 			}
@@ -350,32 +361,46 @@ func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 			ctx, cancelFunc := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancelFunc()
 
-			packReq := packp.NewUploadPackRequest()
-			if err := packReq.Decode(r.Body); err != nil {
-				ms.logger.Error("invalid git-upload-pack request", "error", err.Error())
-				http.Error(w, fmt.Sprintf("invalid git-upload-pack request: %s",
-					err.Error()), http.StatusInternalServerError)
-				return
-			}
-
-			resp, err := sess.UploadPack(ctx, packReq)
-			if err != nil {
-				ms.logger.Error("failed uploading pack", "error", err.Error())
-				http.Error(w, fmt.Sprintf("failed uploading pack: %s",
-					err.Error()), http.StatusInternalServerError)
-				return
-			}
-
 			w.Header().Add("Content-Type", "application/x-git-upload-pack-result")
 			w.Header().Add("Cache-Control", "no-cache")
 
-			w.WriteHeader(successCode)
-			if err := resp.Encode(w); err != nil {
-				ms.logger.Error("failed writing response", "error", err.Error())
-				http.Error(w, fmt.Sprintf("failed writing response: %s",
-					err.Error()), http.StatusInternalServerError)
+			// Okay, I tried implementing `upload-pack` in `go-git`, but I'm
+			// too dumb. GitLab just shells out to git. Let's try that.
+			cmd := exec.CommandContext(ctx, "git", "upload-pack", "--stateless-rpc", fs.Root())
+
+			// Set the stdin to read from the request, and the stdout to write
+			// to the response.
+			cmd.Stdin = r.Body
+			cmd.Stdout = w
+
+			if err := cmd.Start(); err != nil {
+				ms.logger.Error("error starting git upload-pack", "error", err.Error())
+				http.Error(w, fmt.Sprintf("error starting git upload-pack: %s",
+					err.Error()), 500)
 				return
 			}
+
+			if err := cmd.Wait(); err != nil {
+				if err != nil {
+					// For shallow clones, the exit code will be 128, if this is
+					// the case, don't error.
+					var exerr *exec.ExitError
+					if errors.As(err, &exerr) {
+						if exerr.ExitCode() != 128 {
+							ms.logger.Error("error running git upload-pack", "error", err.Error())
+							http.Error(w, fmt.Sprintf("error running git upload-pack: %s",
+								err.Error()), 500)
+							return
+						}
+					} else {
+						ms.logger.Error("error running git upload-pack", "error", err.Error())
+						http.Error(w, fmt.Sprintf("error running git upload-pack: %s",
+							err.Error()), 500)
+						return
+					}
+				}
+			}
+
 			return
 		} else {
 			ms.logger.Error("detected an unknown git request type", "url", r.URL.String())
