@@ -16,7 +16,7 @@ COPY ./ .
 RUN go build -o vcs-mock-proxy ./cmd/vcs-mock-proxy
 
 FROM alpine:3.9
-RUN apk add --no-cache ca-certificates squid dumb-init bash
+RUN apk add --no-cache ca-certificates squid dumb-init bash git
 WORKDIR /
 
 COPY --from=builder /go/src/github.com/hashicorp/vcs-mock-proxy/vcs-mock-proxy .
