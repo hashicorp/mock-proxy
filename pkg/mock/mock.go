@@ -196,6 +196,8 @@ func (ms *MockServer) interception(w icap.ResponseWriter, req *icap.Request) {
 		w.WriteHeader(http.StatusOK, nil, false)
 	case "REQMOD":
 		ms.logger.Info("REQMOD request for", "host", req.Request.Host)
+		ms.logger.Info("REQMOD request URL", "url", fmt.Sprintf("%+v", req.Request.URL))
+
 		route, _ := ms.RouteConfig.MatchRoute(req.Request.URL)
 		if route != nil {
 			icap.ServeLocally(w, req)

@@ -9,6 +9,7 @@ cd "$ROOT_DIR"
 docker-compose --file deployments/docker-compose.yml build
 docker-compose --file deployments/docker-compose.yml run client \
   /bin/sh -c '
+    update-ca-certificates && \
     dockerize \
       -wait tcp://squid.proxy:8888 \
       -timeout 60s \
