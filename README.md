@@ -78,3 +78,13 @@ By default, all mocks return a 200 when they succeed. That's not the only possib
 ./hack/local-dev-up.sh
 curl --head --header "X-Desired-Response-Code: 204" example.com
 ```
+
+## SSL Certificates and Mocking HTTPS requests
+
+Using Squid's SSL Bump configuration, VCS Mock Proxy can also act as an `https_proxy` and successfully mock upstream requests to HTTPS endpoints.
+
+It does so in this local configuration using a self-signed certificate in `/certs`. This self-signed cert is automatically trusted for local dev, and shoud work out of the box.
+
+If configuring VCS Mock Proxy in another environment, you will need to volume mount a self-signed certificate to `/etc/squid/ssl_cert/ca.pem`, and trust that certificate on any system attempting to use VCS Mock Proxy as an `https_proxy`.
+
+To generate these certificates, use the script: `/hack/gen-certs.sh`. This may also be useful example code if you need to incorporate self-signed certs into another system using VCS Mock Proxy.
