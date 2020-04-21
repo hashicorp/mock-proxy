@@ -26,6 +26,7 @@ COPY --from=builder /go/src/github.com/hashicorp/vcs-mock-proxy/vcs-mock-proxy .
 COPY --from=builder /go/src/github.com/hashicorp/vcs-mock-proxy/mocks ./mocks
 
 COPY ./build/package/docker/configs/squid.conf /etc/squid/squid.conf
+COPY ./build/package/docker/configs/squid-ssl.conf /etc/squid/squid-ssl.conf
 COPY ./build/package/docker/scripts/squid-icap-init.sh .
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
