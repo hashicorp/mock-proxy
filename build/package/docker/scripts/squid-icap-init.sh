@@ -17,8 +17,13 @@ trap '
 # TODO: Is this necessary?
 sleep 1
 
-# Start squid in non-daemon mode, but bash backgrounded.
-squid -f /etc/squid/squid.conf -N & PIDS+=($!)
+# Start squid in non-daemon mode, but bash backgrounded. Only use SSL bump if
+# an SSL cert has been mounted at /etc/squid/ssl_cert.
+if [ -f /etc/squid/ssl_cert/ca.pem ]; then
+  squid -f /etc/squid/squid-ssl.conf -N & PIDS+=($!)
+else
+  squid -f /etc/squid/squid.conf -N & PIDS+=($!)
+fi
 
 # Enable "Job Control" mode, then wait:
 # https://www.gnu.org/software/bash/manual/html_node/Job-Control.html#Job-Control

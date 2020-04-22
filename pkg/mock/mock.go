@@ -196,6 +196,8 @@ func (ms *MockServer) interception(w icap.ResponseWriter, req *icap.Request) {
 		w.WriteHeader(http.StatusOK, nil, false)
 	case "REQMOD":
 		ms.logger.Info("REQMOD request for", "host", req.Request.Host)
+		ms.logger.Info("REQMOD request URL", "url", fmt.Sprintf("%+v", req.Request.URL))
+
 		route, _ := ms.RouteConfig.MatchRoute(req.Request.URL)
 		if route != nil {
 			icap.ServeLocally(w, req)
@@ -240,14 +242,15 @@ func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ms.logger.Info("parsing URL", "route", route, "url", r.URL)
+	ms.logger.Info("parsing URL", "route", fmt.Sprintf("%+v", route), "url", r.URL)
 	path, localTransformers, err := route.ParseURL(r.URL)
 	if err != nil {
 		ms.logger.Error("failed to parse mock URL for route", "error", err.Error())
 		http.Error(w, fmt.Sprintf("failed to parse mock URL for route: %s",
 			err.Error()), http.StatusInternalServerError)
 	}
-	ms.logger.Info("parsed URL", "path", path)
+	ms.logger.Info("parsed URL produced path", "path", path)
+
 	switch route.Type {
 	case "http":
 		ms.logger.Info("detected an http mock attempt")

@@ -19,10 +19,14 @@ FROM alpine:3.9
 RUN apk add --no-cache ca-certificates squid dumb-init bash git
 WORKDIR /
 
+# Initialize Squid SSL db.
+RUN /usr/lib/squid/security_file_certgen -c -s /var/lib/ssl_db -M 4MB
+
 COPY --from=builder /go/src/github.com/hashicorp/vcs-mock-proxy/vcs-mock-proxy .
 COPY --from=builder /go/src/github.com/hashicorp/vcs-mock-proxy/mocks ./mocks
 
 COPY ./build/package/docker/configs/squid.conf /etc/squid/squid.conf
+COPY ./build/package/docker/configs/squid-ssl.conf /etc/squid/squid-ssl.conf
 COPY ./build/package/docker/scripts/squid-icap-init.sh .
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]

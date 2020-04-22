@@ -9,6 +9,8 @@ services:
     networks:
       default:
         aliases: [squid.proxy]
+    volumes:
+      - "../certs:/etc/squid/ssl_cert"
 
   client:
     build:
@@ -16,12 +18,14 @@ services:
       dockerfile: build/package/docker/Dockerfile.client
     environment:
       http_proxy: http://squid.proxy:8888
-      #https_proxy: https://squid.proxy:8888
+      https_proxy: http://squid.proxy:8888
     depends_on:
       - proxy
     networks:
       default:
         aliases: [my.client]
+    volumes:
+      - "../certs:/usr/local/share/ca-certificates"
 
 networks:
   default:
