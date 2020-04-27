@@ -454,7 +454,7 @@ func (ms *MockServer) substitutionVariableHandler(
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(js)
+		w.Write(js)
 	case http.MethodPost:
 		err := r.ParseMultipartForm(4096)
 		if err != nil {
