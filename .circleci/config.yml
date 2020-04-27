@@ -12,9 +12,13 @@ workflows:
   validate:
     jobs:
       - prepare-environment
-      - fetch-citool
       - lint
       - test
+      - fetch-citool:
+          filters:
+            branches:
+              only:
+                - master
       - deploy-artifact:
           requires:
             - prepare-environment
