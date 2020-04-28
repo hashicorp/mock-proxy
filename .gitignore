@@ -1,2 +1,2 @@
 # Don't commit the binary
-cmd/vcs-mock-proxy/vcs-mock-proxy
+cmd/mock-proxy/mock-proxy

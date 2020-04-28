@@ -142,7 +142,7 @@ func (ms *MockServer) Serve() error {
 	http.HandleFunc("/", ms.mockHandler)
 	icap.HandleFunc("/icap", ms.interception)
 
-	// We also create a custom ServeMux vcs-mock-proxy API endpoints
+	// We also create a custom ServeMux mock-proxy API endpoints
 	apiMux := http.NewServeMux()
 	apiMux.HandleFunc("/substitution-variables", ms.substitutionVariableHandler)
 
