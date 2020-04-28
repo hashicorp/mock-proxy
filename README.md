@@ -1,5 +1,5 @@
-# VCS Mock Proxy
-_a.k.a. VCS Moxy_
+# mock-proxy
+_a.k.a. Moxie_
 
 It is written in Go and relies on the HTTP intercept capabilities of [ICAP](https://tools.ietf.org/html/rfc3507), as implemented in [go-icap/icap](https://github.com/go-icap/icap). In short, ICAP allows us to specify a set of criteria to match all requests against and then routes them accordingly. When a request hits the proxy, if it matches this criteria then a semi-hardcoded response is automatically short circuited in. If it does not match the criteria, the request proceeds as normal.
 
@@ -13,11 +13,11 @@ In general, this project attempts to stick to the layout prescribed in [golang-s
 
 `build`: CircleCI and Docker build scripts. Also includes relevant squid proxy [config](build/package/docker/configs/squid.conf) and [setup script](build/package/docker/scripts/squid-icap-init.sh).
 
-`cmd`: Contains main.go file for building vcs-mock-proxy.
+`cmd`: Contains main.go file for building mock-proxy.
 
-`deployments`: Configs for publishing builds of vcs-mock-proxy.
+`deployments`: Configs for publishing builds of mock-proxy.
 
-`hack`: Bash scripts for running vcs-mock-proxy locally, since a straight `docker-compose up` won't work.
+`hack`: Bash scripts for running mock-proxy locally, since a straight `docker-compose up` won't work.
 
 `mocks`: Faux endpoints for testing the proxy redirect within this project. The `atlas` project houses endpoints used by itself in [atlas/integration-tests-api](https://github.com/hashicorp/atlas/tree/master/integration-tests-api/mocks).
 
@@ -55,7 +55,7 @@ Do not create overlapping routes. This will cause an error, as the mock routing 
 
 ## Mocking Git Clones
 
-vcs-mock-proxy also supports mocking Git Clones made via HTTP. To do so, add a route to your routes.hcl file:
+mock-proxy also supports mocking Git Clones made via HTTP. To do so, add a route to your routes.hcl file:
 
 ```hcl
 route {
@@ -85,10 +85,10 @@ curl --head --header "X-Desired-Response-Code: 204" example.com
 
 ## SSL Certificates and Mocking HTTPS requests
 
-Using Squid's SSL Bump configuration, VCS Mock Proxy can also act as an `https_proxy` and successfully mock upstream requests to HTTPS endpoints.
+Using Squid's SSL Bump configuration, mock-proxy can also act as an `https_proxy` and successfully mock upstream requests to HTTPS endpoints.
 
 It does so in this local configuration using a self-signed certificate in `/certs`. This self-signed cert is automatically trusted for local dev, and shoud work out of the box.
 
-If configuring VCS Mock Proxy in another environment, you will need to volume mount a self-signed certificate to `/etc/squid/ssl_cert/ca.pem`, and trust that certificate on any system attempting to use VCS Mock Proxy as an `https_proxy`.
+If configuring mock-proxy in another environment, you will need to volume mount a self-signed certificate to `/etc/squid/ssl_cert/ca.pem`, and trust that certificate on any system attempting to use mock-proxy as an `https_proxy`.
 
-To generate these certificates, use the script: `/hack/gen-certs.sh`. This may also be useful example code if you need to incorporate self-signed certs into another system using VCS Mock Proxy.
+To generate these certificates, use the script: `/hack/gen-certs.sh`. This may also be useful example code if you need to incorporate self-signed certs into another system using mock-proxy.

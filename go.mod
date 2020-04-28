@@ -1,4 +1,4 @@
-module github.com/hashicorp/vcs-mock-proxy
+module github.com/hashicorp/mock-proxy
 
 go 1.13
 

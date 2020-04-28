@@ -11,8 +11,8 @@ trap '
   fi
 ' CHLD
 
-# Background the VCS proxy ICAP protocol.
-/vcs-mock-proxy & PIDS+=("$!")
+# Background the mock-proxy ICAP protocol server.
+/mock-proxy & PIDS+=("$!")
 
 # TODO: Is this necessary?
 sleep 1

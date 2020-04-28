@@ -6,12 +6,12 @@ import (
 	"strconv"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/vcs-mock-proxy/pkg/mock"
+	"github.com/hashicorp/mock-proxy/pkg/mock"
 )
 
 func main() {
 	if err := inner(); err != nil {
-		hclog.Default().Error("vcs-mock-proxy error: %s\n", err)
+		hclog.Default().Error("mock-proxy error: %s\n", err)
 		os.Exit(1)
 	}
 }
@@ -33,7 +33,7 @@ func inner() error {
 	}
 
 	options = append(options, mock.WithLogger(hclog.New(&hclog.LoggerOptions{
-		Name:  "vcs-mock-proxy",
+		Name:  "mock-proxy",
 		Level: hclog.LevelFromString(logLevel),
 	})))
 
