@@ -4,7 +4,7 @@ version: 2
 references:
   images:
     go: &GO_IMAGE circleci/golang:1.13.6
-    lint: &LINT_IMAGE quay.io/hashicorp/hc-golangci-lint:1.23.8
+    lint: &LINT_IMAGE golangci/golangci-lint:v1.25-alpine
     aws: &AWS_CLI_IMAGE quay.io/hashicorp/hc-awscli:1.16.313
 
 workflows:
@@ -12,9 +12,13 @@ workflows:
   validate:
     jobs:
       - prepare-environment
-      - fetch-citool
       - lint
       - test
+      - fetch-citool:
+          filters:
+            branches:
+              only:
+                - master
       - deploy-artifact:
           requires:
             - prepare-environment
@@ -71,17 +75,13 @@ jobs:
   lint:
     docker:
       - image: *LINT_IMAGE
-        auth:
-          username: $DEPLOY_QUAY_USER
-          password: $DEPLOY_QUAY_TOKEN
     working_directory: /app
     steps:
       - checkout
       - run:
           name: Lint Code
           command: |
-            cd /
-            ./command.sh
+            golangci-lint run
 
   test:
     docker:
