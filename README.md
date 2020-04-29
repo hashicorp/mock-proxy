@@ -6,7 +6,7 @@ on the HTTP intercept capabilities of [ICAP](https://tools.ietf.org/html/rfc3507
 as implemented in [go-icap/icap](https://github.com/go-icap/icap). This
 replacement proxy is intended for writing integration tests that mock responses
 from external services at the network level. In order to use mock-proxy, a test
-environment specificies it as an HTTP proxy using `http_proxy` type environment
+environment specifies it as an HTTP proxy using `http_proxy` type environment
 variables (or however proxies are configured in your scenario). Because it
 works at the network level and can be used by many services at once using proxy
 config, it works well in microservices environments where many services need to
