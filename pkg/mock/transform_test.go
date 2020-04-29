@@ -51,7 +51,7 @@ func TestVariableSubstitutionTransform(t *testing.T) {
 		{
 			name: "no handlebars in input",
 			vs: []*VariableSubstitution{
-				&VariableSubstitution{
+				{
 					key:   "test_key",
 					value: "test_value",
 				},
@@ -62,7 +62,7 @@ func TestVariableSubstitutionTransform(t *testing.T) {
 		{
 			name: "do a substitution",
 			vs: []*VariableSubstitution{
-				&VariableSubstitution{
+				{
 					key:   "test_key",
 					value: "output",
 				},
@@ -73,7 +73,7 @@ func TestVariableSubstitutionTransform(t *testing.T) {
 		{
 			name: "missing key",
 			vs: []*VariableSubstitution{
-				&VariableSubstitution{key: "a", value: "b"},
+				{key: "a", value: "b"},
 			},
 			input: "just some {{.cool_key}}!",
 			want:  "just some {{.cool_key}}!",
@@ -81,8 +81,8 @@ func TestVariableSubstitutionTransform(t *testing.T) {
 		{
 			name: "chain some transforms together",
 			vs: []*VariableSubstitution{
-				&VariableSubstitution{key: "a", value: "b"},
-				&VariableSubstitution{key: "c", value: "d"},
+				{key: "a", value: "b"},
+				{key: "c", value: "d"},
 			},
 			input: "transform {{ .a }} and {{ .c }}",
 			want:  "transform b and d",

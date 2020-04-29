@@ -114,14 +114,14 @@ func TestMockServerMockHandler(t *testing.T) {
 		},
 		{
 			name: "with X-Desired-Response-Code",
-			url:  "http://example.com/users/404",
+			url:  "http://example.com/users/notexists",
 			options: []Option{
 				WithMockRoot("testdata/"),
 			},
 			headers: map[string]string{
 				"X-Desired-Response-Code": "404",
 			},
-			want:     "404\n",
+			want:     "notexists\n",
 			wantCode: 404,
 		},
 	}
