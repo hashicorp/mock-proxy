@@ -20,6 +20,19 @@ normal.
 
 ![moxie flow diagram](/docs/images/mock-proxy-diagram.png)
 
+## Features
+
+* Selectively mock endpoints, allowing some requests to hit the internet, and
+others to be faked locally.
+* Configure mocked routes using an HCL2 based Routes file.
+* Dynamic URL support, allowing mocking traditional RESTful APIs easily.
+* Templated responses using "Transformer" interface, including the built in
+substitition-variables endpoint.
+* Mock `git clone` operations using the `git` route type.
+* Mock HTTPS endpoints using Squid's SSLBump feature.
+
+See documentation and examples for more information.
+
 ## Disclaimer
 
 This is not an officially supported HashiCorp product.
@@ -56,6 +69,12 @@ development.
 ICAP server.
 
 ## Getting started
+
+The local development and demonstration environment for mock-proxy relies on
+Docker to orchestrate the various services (client, ICAP server, Squid server)
+required to successfully mock requests. If you do not have a functional Docker
+environment, see the
+[getting started docs on Docker's website](https://docs.docker.com/get-started/#set-up-your-docker-environment).
 
 To develop locally, run `./hack/local-dev-up.sh` to start the proxy and client
 containers. The result of this script will leave you in a bash shell inside the
