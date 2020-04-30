@@ -19,9 +19,10 @@ import (
 	"github.com/go-icap/icap"
 	"github.com/hashicorp/go-hclog"
 	"gopkg.in/src-d/go-billy.v4/osfs"
-	"gopkg.in/src-d/go-git.v4/plumbing/format/pktline"
-	"gopkg.in/src-d/go-git.v4/plumbing/protocol/packp/capability"
-	"gopkg.in/src-d/go-git.v4/plumbing/transport"
+
+	gitpktline "gopkg.in/src-d/go-git.v4/plumbing/format/pktline"
+	gitcapability "gopkg.in/src-d/go-git.v4/plumbing/protocol/packp/capability"
+	gittransport "gopkg.in/src-d/go-git.v4/plumbing/transport"
 	gitserver "gopkg.in/src-d/go-git.v4/plumbing/transport/server"
 )
 
@@ -107,8 +108,8 @@ func WithMockRoot(root string) Option {
 // "global" values.
 func WithDefaultVariables(vars ...*VariableSubstitution) Option {
 	return func(m *MockServer) error {
-		for _, newVar := range vars {
-			m.addVariableSubstitution(newVar)
+		for _, v := range vars {
+			m.addVariableSubstitution(v)
 		}
 		return nil
 	}
@@ -138,11 +139,11 @@ func WithLogger(logger hclog.Logger) Option {
 // Serve starts the actual servers and handlers, then waits for them to exit
 // or for an Interrupt signal.
 func (ms *MockServer) Serve() error {
-	// ICAP makes use of these handlers on the DefaultServeMux's
+	// ICAP makes use of these handlers on the DefaultServeMux
 	http.HandleFunc("/", ms.mockHandler)
 	icap.HandleFunc("/icap", ms.interception)
 
-	// We also create a custom ServeMux mock-proxy API endpoints
+	// We also create a custom ServeMux mock-proxy for API endpoints
 	apiMux := http.NewServeMux()
 	apiMux.HandleFunc("/substitution-variables", ms.substitutionVariableHandler)
 
@@ -298,7 +299,7 @@ func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 		)
 		gitServer := gitserver.NewServer(loader)
 
-		ep, err := transport.NewEndpoint(path)
+		ep, err := gittransport.NewEndpoint(path)
 		if err != nil {
 			ms.logger.Error("failed creating transport", "error", err.Error())
 			http.Error(w, fmt.Sprintf("failed creating transport: %s",
@@ -330,22 +331,22 @@ func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Add the Shallow capability
-			if err := refs.Capabilities.Add(capability.Shallow); err != nil {
+			if err := refs.Capabilities.Add(gitcapability.Shallow); err != nil {
 				ms.logger.Error("failed to add shallow capability", "error", err.Error())
 				http.Error(w, fmt.Sprintf("failed to add shallow capability: %s",
 					err.Error()), http.StatusInternalServerError)
 				return
 			}
 
-			// To succesfully interact with smart git clone, we must set a
+			// To successfully interact with smart git clone, we must set a
 			// prefix saying which service this is.
 			refs.Prefix = [][]byte{
 				[]byte(
-					fmt.Sprintf("# service=%s", transport.UploadPackServiceName),
+					fmt.Sprintf("# service=%s", gittransport.UploadPackServiceName),
 				),
 				// Note: This is a semantically significant flush, and I don't
 				// really know why, but do not touch.
-				pktline.Flush,
+				gitpktline.Flush,
 			}
 			w.Header().Add("Content-Type", "application/x-git-upload-pack-advertisement")
 			w.Header().Add("Cache-Control", "no-cache")
@@ -367,8 +368,9 @@ func (ms *MockServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add("Content-Type", "application/x-git-upload-pack-result")
 			w.Header().Add("Cache-Control", "no-cache")
 
-			// Okay, I tried implementing `upload-pack` in `go-git`, but I'm
-			// too dumb. GitLab just shells out to git. Let's try that.
+			// Originally tried implementing `upload-pack` in `go-git`, but
+			// this got complicated, and git --stateless-rpc serves this purpose
+			// well.
 			cmd := exec.CommandContext(ctx, "git", "upload-pack", "--stateless-rpc", fs.Root())
 
 			// Set the stdin to read from the request, and the stdout to write

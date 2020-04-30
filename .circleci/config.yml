@@ -3,7 +3,7 @@ version: 2
 
 references:
   images:
-    go: &GO_IMAGE circleci/golang:1.13.6
+    go: &GO_IMAGE circleci/golang:1.14.2
     lint: &LINT_IMAGE golangci/golangci-lint:v1.25-alpine
     aws: &AWS_CLI_IMAGE quay.io/hashicorp/hc-awscli:1.16.313
 

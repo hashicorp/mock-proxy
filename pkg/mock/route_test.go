@@ -79,12 +79,12 @@ func TestParseURL(t *testing.T) {
 		{
 			name: "git strip ports",
 			route: &Route{
-				Host: "gitlab.tfe:31080",
+				Host: "gitlab.test:31080",
 				Path: "/test/test-project",
 				Type: "git",
 			},
-			url:              "http://gitlab.tfe:31080/test/test-project",
-			wantPath:         "/git/gitlab.tfe/test/test-project/.git",
+			url:              "http://gitlab.test:31080/test/test-project",
+			wantPath:         "/git/gitlab.test/test/test-project/.git",
 			wantTransformers: []Transformer{},
 		},
 	}

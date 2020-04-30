@@ -64,7 +64,6 @@ func ParseRoutes(inFile string) (RouteConfig, error) {
 	if rc.RouteConfig == nil {
 		rc.RouteConfig = RouteConfig{}
 	}
-
 	return rc.RouteConfig, nil
 }
 

@@ -1,2 +1,6 @@
+# Ignore directories / files that don't get used in Docker.
 deployments
 hack
+.github
+.circleci
+README.md

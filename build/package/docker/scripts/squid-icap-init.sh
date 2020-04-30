@@ -14,9 +14,6 @@ trap '
 # Background the mock-proxy ICAP protocol server.
 /mock-proxy & PIDS+=("$!")
 
-# TODO: Is this necessary?
-sleep 1
-
 # Start squid in non-daemon mode, but bash backgrounded. Only use SSL bump if
 # an SSL cert has been mounted at /etc/squid/ssl_cert.
 if [ -f /etc/squid/ssl_cert/ca.pem ]; then

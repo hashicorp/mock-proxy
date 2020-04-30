@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/hashicorp/go-hclog"
+
 	"github.com/hashicorp/mock-proxy/pkg/mock"
 )
 
