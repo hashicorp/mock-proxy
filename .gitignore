@@ -1,2 +1,6 @@
 # Don't commit the binary
 cmd/mock-proxy/mock-proxy
+
+# Don't commit your self signed certs.
+certs/ca.pem
+certs/ca.crt
