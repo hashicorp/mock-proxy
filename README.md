@@ -27,7 +27,7 @@ others to be faked locally.
 * Configure mocked routes using an HCL2 based Routes file.
 * Dynamic URL support, allowing mocking traditional RESTful APIs easily.
 * Templated responses using "Transformer" interface, including the built in
-substitition-variables endpoint.
+substitution-variables endpoint.
 * Mock `git clone` operations using the `git` route type.
 * Mock HTTPS endpoints using Squid's SSLBump feature.
 
