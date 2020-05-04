@@ -1,3 +1,34 @@
+## Local Development && Demonstration
+
+To make it easy to test mock-proxy locally and to simplify developing changes
+to the mock-proxy codebase, a `docker-compose` based local development
+environment has been created.
+
+To start this local development environment run:
+
+```
+./hack/local-dev-up.sh
+```
+
+This will start two Docker containers, `mock_proxy_proxy_1` and
+`mock_proxy_client_run_${UNIQ_ID}` and automatically drop you into a shell
+session running bash in the client.
+
+`mock_proxy_proxy_1` runs the custom ICAP server and Squid proxy.
+
+`mock_proxy_client_run_${UNIQ_ID}` runs a shell session with appropriate
+`http_proxy` and `https_proxy` environment variables set to allow the user to
+automatically interact with the mock-proxy setup on `mock_proxy_proxy_1`.
+
+When you are done with a session, or having issues with the local development
+environment, you should run the script:
+
+```
+./hack/local-dev-down.sh
+```
+
+To clean up the local development environment.
+
 ## Routes File
 
 The Routes file defines which endpoints should be mocked. It is defined in HCL,
