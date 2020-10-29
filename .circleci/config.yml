@@ -3,8 +3,8 @@ version: 2
 
 references:
   images:
-    go: &GO_IMAGE circleci/golang:1.14.2
-    lint: &LINT_IMAGE golangci/golangci-lint:v1.25-alpine
+    go: &GO_IMAGE docker.mirror.hashicorp.services/circleci/golang:1.14.2
+    lint: &LINT_IMAGE docker.mirror.hashicorp.services/golangci/golangci-lint:v1.25-alpine
     aws: &AWS_CLI_IMAGE quay.io/hashicorp/hc-awscli:1.16.313
 
 workflows:

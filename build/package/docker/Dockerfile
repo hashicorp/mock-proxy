@@ -1,4 +1,4 @@
-FROM golang:1.14.2 as builder
+FROM docker.mirror.hashicorp.services/golang:1.14.2 as builder
 
 ENV GOBIN=/go/bin
 ENV CGO_ENABLED=0
@@ -19,7 +19,7 @@ COPY ./cmd cmd
 COPY ./pkg pkg
 RUN go build -o mock-proxy ./cmd/mock-proxy
 
-FROM alpine:3.11
+FROM docker.mirror.hashicorp.services/alpine:3.11
 RUN apk add --no-cache ca-certificates squid dumb-init bash git
 WORKDIR /
 
