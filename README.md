@@ -1,6 +1,8 @@
 # mock-proxy
 _a.k.a. Moxie_
 
+**Notification: this repository is archived since May 18, 2022. Please find an alternative solution for your mock-proxy needs**
+
 mock-proxy (a.k.a Moxie—short for mo(ck)(pro)xy) is a replacement proxy relying
 on the HTTP intercept capabilities of [ICAP](https://tools.ietf.org/html/rfc3507),
 as implemented in [go-icap/icap](https://github.com/go-icap/icap). This
